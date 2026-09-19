@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Factorial Calculator - Desktop Application</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-gradient: radial-gradient(circle at 15% 15%, #1e1b4b 0%, #0f172a 45%, #020617 100%);
+      --window-bg: rgba(15, 23, 42, 0.85);
+      --window-border: rgba(255, 255, 255, 0.12);
+      --window-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.7), 0 0 1px 1px rgba(255, 255, 255, 0.08);
+      
+      --display-bg: rgba(2, 6, 23, 0.75);
+      --display-border: rgba(255, 255, 255, 0.06);
+      
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      
+      --btn-num-bg: rgba(30, 41, 59, 0.7);
+      --btn-num-hover: rgba(51, 65, 85, 0.9);
+      --btn-num-active: rgba(71, 85, 105, 1);
+      
+      --btn-op-bg: rgba(59, 130, 246, 0.18);
+      --btn-op-color: #60a5fa;
+      --btn-op-hover: rgba(59, 130, 246, 0.32);
+      
+      --btn-fact-bg: linear-gradient(135deg, rgba(236, 72, 153, 0.2), rgba(168, 85, 247, 0.2));
+      --btn-fact-border: rgba(236, 72, 153, 0.35);
+      --btn-fact-color: #f472b6;
+      --btn-fact-hover: linear-gradient(135deg, rgba(236, 72, 153, 0.35), rgba(168, 85, 247, 0.35));
+      
+      --btn-eq-bg: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      --btn-eq-color: #ffffff;
+      --btn-eq-hover: linear-gradient(135deg, #2563eb, #7c3aed);
+      --btn-eq-shadow: 0 4px 18px rgba(99, 102, 241, 0.45);
+      
+      --accent-cyan: #38bdf8;
+      --accent-green: #4ade80;
+      --accent-red: #f87171;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      min-height: 100vh;
+      background: var(--bg-gradient);
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      overflow-x: hidden;
+    }
+
+    /* Ambient Desktop Glow */
+    .ambient-glow {
+      position: fixed;
+      width: 600px;
+      height: 600px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(99, 102, 241, 0.15) 0%, transparent 70%);
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Desktop Window Container */
+    .desktop-app-window {
+      position: relative;
+      z-index: 1;
+      width: 440px;
+      max-width: 100%;
+      background: var(--window-bg);
+      backdrop-filter: blur(28px);
+      -webkit-backdrop-filter: blur(28px);
+      border-radius: 20px;
+      border: 1px solid var(--window-border);
+      box-shadow: var(--window-shadow);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    /* Title Bar (Desktop Style) */
+    .window-titlebar {
+      height: 44px;
+      padding: 0 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      background: rgba(15, 23, 42, 0.4);
+    }
+
+    .window-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .ctrl-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: transform 0.15s ease, filter 0.15s ease;
+    }
+
+    .ctrl-dot:hover {
+      transform: scale(1.15);
+      filter: brightness(1.2);
+    }
+
+    .ctrl-close { background: #ef4444; box-shadow: 0 0 8px rgba(239, 68, 68, 0.4); }
+    .ctrl-min   { background: #f59e0b; box-shadow: 0 0 8px rgba(245, 158, 11, 0.4); }
+    .ctrl-max   { background: #10b981; box-shadow: 0 0 8px rgba(16, 185, 129, 0.4); }
+
+    .window-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+      letter-spacing: 0.02em;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .window-badge {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 2px 7px;
+      border-radius: 6px;
+      background: rgba(236, 72, 153, 0.2);
+      color: #f472b6;
+      border: 1px solid rgba(236, 72, 153, 0.3);
+    }
+
+    /* Tab Switcher */
+    .tabs-bar {
+      display: flex;
+      padding: 8px 16px;
+      gap: 8px;
+      background: rgba(2, 6, 23, 0.3);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .tab-btn.active {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-main);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    }
+
+    /* Display Area */
+    .calc-screen {
+      background: var(--display-bg);
+      border: 1px solid var(--display-border);
+      border-radius: 14px;
+      margin: 16px 16px 8px 16px;
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      min-height: 120px;
+      position: relative;
+    }
+
+    .screen-history {
+      font-size: 13px;
+      color: var(--text-dim);
+      min-height: 18px;
+      text-align: right;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-family: 'Fira Code', monospace;
+    }
+
+    .screen-expression {
+      font-size: 15px;
+      color: var(--accent-cyan);
+      min-height: 22px;
+      text-align: right;
+      font-family: 'Fira Code', monospace;
+      overflow-x: auto;
+      white-space: nowrap;
+      margin-top: 4px;
+    }
+
+    .screen-result {
+      font-size: 34px;
+      font-weight: 700;
+      color: var(--text-main);
+      text-align: right;
+      font-family: 'Fira Code', monospace;
+      overflow-x: auto;
+      white-space: nowrap;
+      letter-spacing: -0.02em;
+      margin-top: 6px;
+    }
+
+    /* Step Breakdown Drawer (Collapsible) */
+    .steps-drawer {
+      margin: 0 16px 10px 16px;
+      padding: 10px 14px;
+      background: rgba(30, 41, 59, 0.45);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 10px;
+      font-size: 12px;
+      color: #cbd5e1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .steps-header {
+      font-weight: 600;
+      color: var(--text-muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .steps-content {
+      font-family: 'Fira Code', monospace;
+      color: #f1f5f9;
+      font-size: 12px;
+      max-height: 70px;
+      overflow-y: auto;
+      word-break: break-all;
+      line-height: 1.4;
+    }
+
+    /* Buttons Keypad Grid */
+    .keypad-grid {
+      padding: 8px 16px 16px 16px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+
+    .key-btn {
+      position: relative;
+      height: 52px;
+      border: none;
+      border-radius: 12px;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 17px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+      outline: none;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+    }
+
+    .key-btn:active {
+      transform: scale(0.95);
+    }
+
+    /* Number Keys */
+    .key-num {
+      background: var(--btn-num-bg);
+      color: var(--text-main);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .key-num:hover {
+      background: var(--btn-num-hover);
+      border-color: rgba(255, 255, 255, 0.1);
+    }
+
+    /* Operators */
+    .key-op {
+      background: var(--btn-op-bg);
+      color: var(--btn-op-color);
+      border: 1px solid rgba(96, 165, 250, 0.2);
+    }
+
+    .key-op:hover {
+      background: var(--btn-op-hover);
+    }
+
+    /* Factorial Special Functions */
+    .key-fact {
+      background: var(--btn-fact-bg);
+      color: var(--btn-fact-color);
+      border: 1px solid var(--btn-fact-border);
+      font-weight: 700;
+    }
+
+    .key-fact:hover {
+      background: var(--btn-fact-hover);
+      box-shadow: 0 0 14px rgba(244, 114, 182, 0.3);
+    }
+
+    /* Equal Key */
+    .key-eq {
+      background: var(--btn-eq-bg);
+      color: var(--btn-eq-color);
+      box-shadow: var(--btn-eq-shadow);
+    }
+
+    .key-eq:hover {
+      background: var(--btn-eq-hover);
+      box-shadow: 0 6px 22px rgba(99, 102, 241, 0.6);
+    }
+
+    /* Clear / Delete */
+    .key-clear {
+      background: rgba(239, 68, 68, 0.15);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.25);
+    }
+
+    .key-clear:hover {
+      background: rgba(239, 68, 68, 0.28);
+    }
+
+    /* History & Info Panel */
+    .history-panel {
+      display: none;
+      padding: 16px;
+      max-height: 420px;
+      overflow-y: auto;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .history-item {
+      padding: 10px 14px;
+      border-radius: 10px;
+      background: rgba(30, 41, 59, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      font-family: 'Fira Code', monospace;
+      font-size: 13px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .history-item:hover {
+      background: rgba(51, 65, 85, 0.6);
+    }
+
+    .history-empty {
+      text-align: center;
+      color: var(--text-dim);
+      font-size: 13px;
+      padding: 40px 0;
+    }
+
+    /* Dialog Modal (for nPr / nCr inputs) */
+    .modal-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(6px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+      padding: 20px;
+    }
+
+    .modal-box {
+      width: 100%;
+      background: #0f172a;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 16px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+    }
+
+    .modal-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--accent-cyan);
+    }
+
+    .modal-field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .modal-field label {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .modal-field input {
+      background: #1e293b;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-family: 'Fira Code', monospace;
+      font-size: 14px;
+      color: white;
+      outline: none;
+    }
+
+    .modal-field input:focus {
+      border-color: var(--accent-cyan);
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    .modal-btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+    }
+
+    .modal-btn-cancel {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text-muted);
+    }
+
+    .modal-btn-confirm {
+      background: var(--accent-cyan);
+      color: #0f172a;
+    }
+
+    /* Notification toast */
+    .toast {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%) translateY(50px);
+      background: #10b981;
+      color: #022c22;
+      font-weight: 600;
+      font-size: 12px;
+      padding: 8px 16px;
+      border-radius: 20px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      opacity: 0;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      pointer-events: none;
+      z-index: 20;
+    }
+
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="ambient-glow"></div>
+
+  <!-- Main Desktop Window -->
+  <div class="desktop-app-window" id="desktopWindow">
+    
+    <!-- Titlebar (macOS / Windows Hybrid Look) -->
+    <div class="window-titlebar">
+      <div class="window-controls">
+        <div class="ctrl-dot ctrl-close" title="Close" onclick="resetCalculator()"></div>
+        <div class="ctrl-dot ctrl-min" title="Minimize"></div>
+        <div class="ctrl-dot ctrl-max" title="Expand"></div>
+      </div>
+      <div class="window-title">
+        <span>Factorial Calculator</span>
+        <span class="window-badge">Desktop App</span>
+      </div>
+      <div style="width: 48px;"></div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="tabs-bar">
+      <button class="tab-btn active" id="tabCalc" onclick="switchTab('calc')">Calculator</button>
+      <button class="tab-btn" id="tabHistory" onclick="switchTab('history')">History (<span id="historyCount">0</span>)</button>
+    </div>
+
+    <!-- Calculator View -->
+    <div id="calcView">
+      <!-- Digital Display -->
+      <div class="calc-screen">
+        <div class="screen-history" id="screenHistory">Ready</div>
+        <div class="screen-expression" id="screenExpr"></div>
+        <div class="screen-result" id="screenResult">0</div>
+      </div>
+
+      <!-- Step-by-Step Breakdown Drawer -->
+      <div class="steps-drawer" id="stepsDrawer">
+        <div class="steps-header">
+          <span>Mathematical Steps</span>
+          <span style="color: var(--accent-cyan); cursor: pointer;" onclick="copyResult()">Copy</span>
+        </div>
+        <div class="steps-content" id="stepsText">
+          Enter an integer and press <strong>n!</strong> to view step-by-step breakdown.
+        </div>
+      </div>
+
+      <!-- Keypad Grid -->
+      <div class="keypad-grid">
+        <!-- Row 1: Factorial & Combinatorics -->
+        <button class="key-btn key-clear" onclick="clearAll()">AC</button>
+        <button class="key-btn key-clear" onclick="backspace()">⌫</button>
+        <button class="key-btn key-fact" onclick="calculateFactorial()" id="btnFact">n!</button>
+        <button class="key-btn key-fact" onclick="calculateDoubleFactorial()">n!!</button>
+
+        <!-- Row 2: Permutations, Combinations, Power, Divide -->
+        <button class="key-btn key-fact" onclick="openCombinatoricsModal('nPr')">nPr</button>
+        <button class="key-btn key-fact" onclick="openCombinatoricsModal('nCr')">nCr</button>
+        <button class="key-btn key-op" onclick="appendOperator('^')">xʸ</button>
+        <button class="key-btn key-op" onclick="appendOperator('÷')">÷</button>
+
+        <!-- Row 3: 7, 8, 9, Multiply -->
+        <button class="key-btn key-num" onclick="appendNumber('7')">7</button>
+        <button class="key-btn key-num" onclick="appendNumber('8')">8</button>
+        <button class="key-btn key-num" onclick="appendNumber('9')">9</button>
+        <button class="key-btn key-op" onclick="appendOperator('×')">×</button>
+
+        <!-- Row 4: 4, 5, 6, Subtract -->
+        <button class="key-btn key-num" onclick="appendNumber('4')">4</button>
+        <button class="key-btn key-num" onclick="appendNumber('5')">5</button>
+        <button class="key-btn key-num" onclick="appendNumber('6')">6</button>
+        <button class="key-btn key-op" onclick="appendOperator('-')">−</button>
+
+        <!-- Row 5: 1, 2, 3, Add -->
+        <button class="key-btn key-num" onclick="appendNumber('1')">1</button>
+        <button class="key-btn key-num" onclick="appendNumber('2')">2</button>
+        <button class="key-btn key-num" onclick="appendNumber('3')">3</button>
+        <button class="key-btn key-op" onclick="appendOperator('+')">+</button>
+
+        <!-- Row 6: 0, Dot, Steps Info, Equals -->
+        <button class="key-btn key-num" onclick="appendNumber('0')">0</button>
+        <button class="key-btn key-num" onclick="appendDot()">.</button>
+        <button class="key-btn key-fact" onclick="showStepsBreakdownModal()" title="View Step Expansion">Steps</button>
+        <button class="key-btn key-eq" onclick="calculateEquals()">=</button>
+      </div>
+    </div>
+
+    <!-- History View -->
+    <div class="history-panel" id="historyView">
+      <div id="historyList">
+        <div class="history-empty">No calculations recorded yet.</div>
+      </div>
+    </div>
+
+    <!-- Modal for nPr / nCr -->
+    <div class="modal-overlay" id="modalOverlay">
+      <div class="modal-box">
+        <div class="modal-title" id="modalTitle">Calculate Permutations (nPr)</div>
+        <div class="modal-field">
+          <label>Total Items (n):</label>
+          <input type="number" id="modalInputN" min="0" value="5">
+        </div>
+        <div class="modal-field">
+          <label>Selected Items (r):</label>
+          <input type="number" id="modalInputR" min="0" value="2">
+        </div>
+        <div class="modal-actions">
+          <button class="modal-btn modal-btn-cancel" onclick="closeCombinatoricsModal()">Cancel</button>
+          <button class="modal-btn modal-btn-confirm" onclick="confirmCombinatorics()">Calculate</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast" id="toast">Copied to clipboard!</div>
+  </div>
+
+  <script>
+    // State
+    let currentInput = "0";
+    let pendingOperator = null;
+    let operand1 = null;
+    let history = [];
+    let activeModalType = null;
+    let lastCalculationSteps = "";
+
+    const screenHistory = document.getElementById("screenHistory");
+    const screenExpr = document.getElementById("screenExpr");
+    const screenResult = document.getElementById("screenResult");
+    const stepsText = document.getElementById("stepsText");
+    const toast = document.getElementById("toast");
+
+    // BigInt Factorial Logic
+    function factorialBigInt(n) {
+      if (n < 0) throw new Error("Factorial is undefined for negative numbers.");
+      if (n === 0 || n === 1) return 1n;
+      let res = 1n;
+      for (let i = 2n; i <= BigInt(n); i++) {
+        res *= i;
+      }
+      return res;
+    }
+
+    // Double Factorial
+    function doubleFactorialBigInt(n) {
+      if (n < 0) throw new Error("Double factorial is undefined for negative numbers.");
+      if (n === 0 || n === 1) return 1n;
+      let res = 1n;
+      for (let i = BigInt(n); i > 0n; i -= 2n) {
+        res *= i;
+      }
+      return res;
+    }
+
+    function updateDisplay() {
+      screenResult.textContent = currentInput;
+    }
+
+    function appendNumber(num) {
+      if (currentInput === "0" || currentInput === "Error") {
+        currentInput = num;
+      } else {
+        currentInput += num;
+      }
+      updateDisplay();
+    }
+
+    function appendDot() {
+      if (!currentInput.includes(".")) {
+        currentInput += ".";
+        updateDisplay();
+      }
+    }
+
+    function clearAll() {
+      currentInput = "0";
+      pendingOperator = null;
+      operand1 = null;
+      screenExpr.textContent = "";
+      screenHistory.textContent = "Cleared";
+      stepsText.innerHTML = "Enter an integer and press <strong>n!</strong> to view step-by-step breakdown.";
+      lastCalculationSteps = "";
+      updateDisplay();
+    }
+
+    function backspace() {
+      if (currentInput.length > 1 && currentInput !== "Error") {
+        currentInput = currentInput.slice(0, -1);
+      } else {
+        currentInput = "0";
+      }
+      updateDisplay();
+    }
+
+    // Factorial (n!) Handler
+    function calculateFactorial() {
+      try {
+        const n = parseInt(currentInput, 10);
+        if (isNaN(n) || n < 0) {
+          showError("Enter non-negative integer");
+          return;
+        }
+        if (n > 1000) {
+          showError("Maximum n is 1000");
+          return;
+        }
+
+        const factResult = factorialBigInt(n);
+        let steps = "";
+
+        if (n === 0) {
+          steps = "0! = 1 (by mathematical definition)";
+        } else if (n === 1) {
+          steps = "1! = 1";
+        } else if (n <= 15) {
+          const items = [];
+          for (let i = n; i >= 1; i--) items.push(i);
+          steps = `${n}! = ${items.join(" × ")} = ${factResult.toString()}`;
+        } else {
+          steps = `${n}! = ${n} × ${n - 1} × ... × 2 × 1 = ${factResult.toString()}`;
+        }
+
+        lastCalculationSteps = steps;
+        stepsText.textContent = steps;
+        screenExpr.textContent = `${n}! =`;
+        screenHistory.textContent = `Factorial of ${n}`;
+
+        const resultStr = factResult.toString();
+        currentInput = resultStr;
+        updateDisplay();
+
+        addHistory(`${n}!`, resultStr, steps);
+        showToast(`${n}! calculated`);
+      } catch (err) {
+        showError(err.message);
+      }
+    }
+
+    // Double Factorial (n!!)
+    function calculateDoubleFactorial() {
+      try {
+        const n = parseInt(currentInput, 10);
+        if (isNaN(n) || n < 0) {
+          showError("Enter non-negative integer");
+          return;
+        }
+
+        const res = doubleFactorialBigInt(n);
+        const steps = `${n}!! = ${n} × ${n - 2} × ... = ${res.toString()}`;
+        
+        lastCalculationSteps = steps;
+        stepsText.textContent = steps;
+        screenExpr.textContent = `${n}!! =`;
+        screenHistory.textContent = `Double Factorial of ${n}`;
+
+        currentInput = res.toString();
+        updateDisplay();
+
+        addHistory(`${n}!!`, currentInput, steps);
+        showToast(`${n}!! calculated`);
+      } catch (err) {
+        showError(err.message);
+      }
+    }
+
+    // Standard Operations
+    function appendOperator(op) {
+      operand1 = parseFloat(currentInput);
+      pendingOperator = op;
+      screenExpr.textContent = `${operand1} ${op}`;
+      currentInput = "0";
+      updateDisplay();
+    }
+
+    function calculateEquals() {
+      if (pendingOperator === null || operand1 === null) return;
+      const operand2 = parseFloat(currentInput);
+      let result = 0;
+
+      switch (pendingOperator) {
+        case "+": result = operand1 + operand2; break;
+        case "-": result = operand1 - operand2; break;
+        case "×": result = operand1 * operand2; break;
+        case "÷":
+          if (operand2 === 0) {
+            showError("Cannot divide by 0");
+            return;
+          }
+          result = operand1 / operand2;
+          break;
+        case "^": result = Math.pow(operand1, operand2); break;
+      }
+
+      const exprStr = `${operand1} ${pendingOperator} ${operand2}`;
+      screenHistory.textContent = exprStr;
+      screenExpr.textContent = `${exprStr} =`;
+      stepsText.textContent = `${exprStr} = ${result}`;
+
+      currentInput = result.toString();
+      updateDisplay();
+
+      addHistory(exprStr, result.toString(), `${exprStr} = ${result}`);
+      pendingOperator = null;
+      operand1 = null;
+    }
+
+    // Combinatorics Modal (nPr and nCr)
+    function openCombinatoricsModal(type) {
+      activeModalType = type;
+      const modal = document.getElementById("modalOverlay");
+      const title = document.getElementById("modalTitle");
+      const currentVal = parseInt(currentInput, 10);
+      
+      document.getElementById("modalInputN").value = (!isNaN(currentVal) && currentVal >= 0) ? currentVal : 5;
+      document.getElementById("modalInputR").value = 2;
+
+      title.textContent = type === "nPr" ? "Permutations: P(n, r) = n! / (n - r)!" : "Combinations: C(n, r) = n! / (r! × (n - r)!)";
+      modal.style.display = "flex";
+    }
+
+    function closeCombinatoricsModal() {
+      document.getElementById("modalOverlay").style.display = "none";
+      activeModalType = null;
+    }
+
+    function confirmCombinatorics() {
+      const n = parseInt(document.getElementById("modalInputN").value, 10);
+      const r = parseInt(document.getElementById("modalInputR").value, 10);
+
+      if (isNaN(n) || isNaN(r) || n < 0 || r < 0) {
+        alert("Please enter positive integers.");
+        return;
+      }
+      if (r > n) {
+        alert("r cannot be greater than n.");
+        return;
+      }
+
+      const factN = factorialBigInt(n);
+      const factR = factorialBigInt(r);
+      const factNminusR = factorialBigInt(n - r);
+
+      let res, formula, steps;
+      if (activeModalType === "nPr") {
+        res = factN / factNminusR;
+        formula = `P(${n}, ${r})`;
+        steps = `P(${n}, ${r}) = ${n}! / (${n} - ${r})! = ${res.toString()}`;
+      } else {
+        res = factN / (factR * factNminusR);
+        formula = `C(${n}, ${r})`;
+        steps = `C(${n}, ${r}) = ${n}! / (${r}! × (${n} - ${r})!) = ${res.toString()}`;
+      }
+
+      closeCombinatoricsModal();
+
+      lastCalculationSteps = steps;
+      stepsText.textContent = steps;
+      screenExpr.textContent = `${formula} =`;
+      screenHistory.textContent = formula;
+
+      currentInput = res.toString();
+      updateDisplay();
+
+      addHistory(formula, currentInput, steps);
+      showToast(`${formula} calculated`);
+    }
+
+    function showStepsBreakdownModal() {
+      if (!lastCalculationSteps) {
+        showToast("Calculate a factorial first!");
+        return;
+      }
+      alert(`Mathematical Breakdown:\n\n${lastCalculationSteps}`);
+    }
+
+    // History
+    function addHistory(expression, result, steps) {
+      history.unshift({ expression, result, steps });
+      document.getElementById("historyCount").textContent = history.length;
+      renderHistory();
+    }
+
+    function renderHistory() {
+      const list = document.getElementById("historyList");
+      if (history.length === 0) {
+        list.innerHTML = '<div class="history-empty">No calculations recorded yet.</div>';
+        return;
+      }
+      list.innerHTML = history.map((item, idx) => `
+        <div class="history-item" onclick="loadHistoryItem(${idx})">
+          <div>
+            <div style="color: var(--accent-cyan);">${item.expression}</div>
+            <div style="font-size: 11px; color: var(--text-dim);">${item.steps.slice(0, 40)}...</div>
+          </div>
+          <div style="font-weight: 700; color: white;">= ${item.result}</div>
+        </div>
+      `).join("");
+    }
+
+    function loadHistoryItem(idx) {
+      const item = history[idx];
+      currentInput = item.result;
+      screenExpr.textContent = `${item.expression} =`;
+      screenHistory.textContent = item.expression;
+      stepsText.textContent = item.steps;
+      lastCalculationSteps = item.steps;
+      updateDisplay();
+      switchTab("calc");
+    }
+
+    function switchTab(tab) {
+      const calcView = document.getElementById("calcView");
+      const historyView = document.getElementById("historyView");
+      const tabCalc = document.getElementById("tabCalc");
+      const tabHistory = document.getElementById("tabHistory");
+
+      if (tab === "calc") {
+        calcView.style.display = "block";
+        historyView.style.display = "none";
+        tabCalc.classList.add("active");
+        tabHistory.classList.remove("active");
+      } else {
+        calcView.style.display = "none";
+        historyView.style.display = "flex";
+        tabCalc.classList.remove("active");
+        tabHistory.classList.add("active");
+      }
+    }
+
+    function showError(msg) {
+      currentInput = "Error";
+      stepsText.textContent = `Error: ${msg}`;
+      screenHistory.textContent = msg;
+      updateDisplay();
+    }
+
+    function showToast(msg) {
+      toast.textContent = msg;
+      toast.classList.add("show");
+      setTimeout(() => toast.classList.remove("show"), 2200);
+    }
+
+    function copyResult() {
+      if (currentInput !== "Error") {
+        navigator.clipboard.writeText(currentInput);
+        showToast("Copied to clipboard!");
+      }
+    }
+
+    function resetCalculator() {
+      clearAll();
+      showToast("App reset");
+    }
+
+    // Keyboard controls
+    window.addEventListener("keydown", (e) => {
+      if (e.key >= "0" && e.key <= "9") appendNumber(e.key);
+      else if (e.key === ".") appendDot();
+      else if (e.key === "Enter" || e.key === "=") calculateEquals();
+      else if (e.key === "Backspace") backspace();
+      else if (e.key === "Escape") clearAll();
+      else if (e.key === "+") appendOperator("+");
+      else if (e.key === "-") appendOperator("-");
+      else if (e.key === "*") appendOperator("×");
+      else if (e.key === "/") appendOperator("÷");
+      else if (e.key === "!") calculateFactorial();
+    });
+  </script>
+</body>
+</html>
