@@ -1,15 +1,6 @@
 # Functional Requirements Document (FRD)
 ## Sign Language Recognition System
 
-| Attribute | Details |
-| :--- | :--- |
-| **Document** | Functional Requirements Document (FRD) |
-| **Jira Epic / Task** | `KAN-2` — Create Project's Functional Requirements Document |
-| **Subtasks** | `KAN-3` – `KAN-9` |
-| **Reporter** | Vahram Ghazaryan |
-| **Assignee** | Naira Amiryan |
-| **Status** | Draft |
-
 ---
 
 ## 1. General Overview
