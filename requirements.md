@@ -19,7 +19,7 @@ This document defines the functional requirements for the **Sign Language Recogn
 
 ---
 
-## 2. Supported Sign Types (`KAN-3`)
+## 2. Supported Sign Types 
 - **Static Signs (Single-frame handshapes):** Isolated letters or concepts that do not require movement.
 - **Dynamic Signs (Motion-based signs):** Signs whose meaning depends on movement trajectory, speed, and direction.
 - **Two-handed Signs:** Signs where both hands are involved and convey meaning through their relative positions and coordinated motion.
@@ -28,7 +28,7 @@ This document defines the functional requirements for the **Sign Language Recogn
 
 ---
 
-## 3. Sign Recognition Rules (`KAN-4`)
+## 3. Sign Recognition Rules 
 - **Hand & Finger Pose Recognition:** The computer vision model analyzes hand skeletal landmarks frame by frame.
 - **Motion Trajectory Analysis:** For dynamic signs, the hand’s direction, velocity, and trajectory shape are tracked and analyzed.
 - **Temporal Segmentation:** The continuous video stream is segmented into individual sign boundaries.
@@ -38,7 +38,7 @@ This document defines the functional requirements for the **Sign Language Recogn
 
 ---
 
-## 4. Input and Output Requirements (`KAN-5`)
+## 4. Input and Output Requirements 
 
 ### Input
 - **Real-time Video Stream:** Frame-by-frame capture from a live camera feed.
@@ -54,7 +54,7 @@ This document defines the functional requirements for the **Sign Language Recogn
 
 ---
 
-## 5. Handling Unrecognized and Ambiguous Signs (`KAN-6`)
+## 5. Handling Unrecognized and Ambiguous Signs 
 - **Low-Confidence Signs:** If a prediction falls below the confidence threshold, the gesture is flagged as "unrecognized" and excluded from the sentence.
 - **Ambiguous Signs:** When candidate signs have closely matched probabilities, the system uses sentence context to disambiguate and select the most probable sign.
 - **Fallback Gesture:** A dedicated gesture or command allowing the user to repeat the last sign or restart the sentence from the beginning.
@@ -63,7 +63,7 @@ This document defines the functional requirements for the **Sign Language Recogn
 
 ---
 
-## 6. Continuous Gesture Input Processing (`KAN-7`)
+## 6. Continuous Gesture Input Processing 
 - **Sliding Window Analysis:** Continuously evaluates the video stream across sequential temporal windows without waiting for the full utterance to complete.
 - **Co-articulation & Transition Boundary Detection:** Distinguishes transitional hand movements between consecutive signs without requiring explicit pauses (inherent to natural sign language).
 - **Buffer / Queue Management:** Temporarily buffers recent frames and candidate segments until sequence completion or continuation is established.
@@ -72,7 +72,7 @@ This document defines the functional requirements for the **Sign Language Recogn
 
 ---
 
-## 7. Gesture Lifecycle: Start, Progression, and End (`KAN-8`)
+## 7. Gesture Lifecycle: Start, Progression, and End 
 - **Start Detection:** The appearance and positioning of hands/body within the active camera frame marks the start of a signing sequence.
 - **Progression Tracking:** Consecutive frames are continuously ingested and processed as part of the active sign/sentence until a termination event is detected.
 - **End Detection:** Determined by stillness/motion cessation, hands returning to a neutral resting position, or an explicit user signal.
@@ -81,7 +81,7 @@ This document defines the functional requirements for the **Sign Language Recogn
 
 ---
 
-## 8. Functional Edge Cases and Exceptions (`KAN-9`)
+## 8. Functional Edge Cases and Exceptions 
 - **Camera & Frame Degradation:** Poor illumination, severe motion blur, partial hand occlusion, or user moving outside camera frame boundaries.
 - **Multiple People or Extraneous Hands:** The system identifies and locks onto the primary signer while filtering out background persons or accidental hand appearances.
 - **False Triggers:** Casual, non-signing gestures (e.g., scratching, adjusting glasses) must be filtered to prevent false activations.
