@@ -3,6 +3,7 @@
 # dependencies
 /node_modules
 /AGENTS.md
+/CLAUDE.md
 /.pnp
 .pnp.*
 .yarn/*
