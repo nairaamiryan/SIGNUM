@@ -2,6 +2,7 @@
 
 # dependencies
 /node_modules
+/AGENTS.md
 /.pnp
 .pnp.*
 .yarn/*
