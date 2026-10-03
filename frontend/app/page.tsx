@@ -1,11 +1,14 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { useTranslation } from "react-i18next";
 import CameraFeed from "@/components/CameraFeed";
 import CaptionDisplay from "@/components/CaptionDisplay";
 import { useRecognitionSocket } from "@/lib/useRecognitionSocket";
 
 export default function Home() {
+  const { t } = useTranslation();
+
   const [caption, setCaption] = useState("");
   const [confidence, setConfidence] = useState<number | null>(null);
   const [unrecognized, setUnrecognized] = useState(false);
@@ -51,7 +54,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center p-8 gap-6">
-      <h1 className="text-2xl font-bold">Armenian Sign Language Recognition</h1>
+      <h1 className="text-2xl font-bold">{t("app.title")}</h1>
 
       <CameraFeed
         onStreamReady={handleStreamReady}
@@ -68,8 +71,7 @@ export default function Home() {
 
       {connectionError && (
         <p className="text-red-500 text-sm max-w-2xl text-center">
-          {connectionError} — the Gesture Recognition Service may not be
-          running yet.
+          {connectionError}
         </p>
       )}
     </main>

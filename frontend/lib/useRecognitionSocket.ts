@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useCallback, useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import type { ClientMessage, ServerMessage } from "./types";
 
 interface UseRecognitionSocketOptions {
@@ -16,13 +17,15 @@ export function useRecognitionSocket({
     onServerState,
     onError,
 }: UseRecognitionSocketOptions) {
+    const { t } = useTranslation();
+
     const socketRef = useRef<WebSocket | null>(null);
     const [connected, setConnected] = useState(false);
 
     const connect = useCallback(() => {
         const url = process.env.NEXT_PUBLIC_WS_URL;
         if (!url) {
-            onError?.("WebSocket URL is not configured (NEXT_PUBLIC_WS_URL).");
+            onError?.(t("connection.notConfigured"));
             return;
         }
 
@@ -34,7 +37,7 @@ export function useRecognitionSocket({
         socket.onclose = () => setConnected(false);
 
         socket.onerror = () => {
-            onError?.("Unable to connect to the Gesture Recognition Service.");
+            onError?.(t("connection.error"));
         };
 
         socket.onmessage = (event) => {
@@ -59,7 +62,7 @@ export function useRecognitionSocket({
                 console.warn("Received malformed message from Gesture Recognition Service:", event.data);
             }
         };
-    }, [onCaption, onUnrecognized, onServerState, onError]);
+    }, [onCaption, onUnrecognized, onServerState, onError, t]);
 
     const disconnect = useCallback(() => {
         socketRef.current?.close();
