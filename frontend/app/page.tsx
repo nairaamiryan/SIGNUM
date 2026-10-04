@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import CameraFeed from "@/components/CameraFeed";
 import CaptionDisplay from "@/components/CaptionDisplay";
 import { useRecognitionSocket } from "@/lib/useRecognitionSocket";
+import type { LandmarkFrame } from "@/lib/useHolisticLandmarks";
 
 export default function Home() {
   const { t } = useTranslation();
@@ -40,10 +41,16 @@ export default function Home() {
     setUnrecognized(false);
   }, [disconnect]);
 
-  const handleFrameCaptured = useCallback(
-    (canvas: HTMLCanvasElement) => {
-      const data = canvas.toDataURL("image/jpeg", 0.6);
-      send({ type: "frame", timestamp: Date.now(), data });
+  const handleLandmarksDetected = useCallback(
+    (frame: LandmarkFrame) => {
+      send({
+        type: "landmarks",
+        timestamp: frame.timestamp,
+        leftHand: frame.leftHand,
+        rightHand: frame.rightHand,
+        face: frame.face,
+        pose: frame.pose,
+      });
     },
     [send]
   );
@@ -59,7 +66,7 @@ export default function Home() {
       <CameraFeed
         onStreamReady={handleStreamReady}
         onStreamStopped={handleStreamStopped}
-        onFrameCaptured={handleFrameCaptured}
+        onLandmarksDetected={handleLandmarksDetected}
         onFinalize={handleFinalize}
       />
 
