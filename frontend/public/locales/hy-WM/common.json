@@ -1,0 +1,28 @@
+{
+    "app": {
+        "title": "Հայերէն Նշանի Լեզուի Ճանաչում"
+    },
+    "state": {
+        "idle": "Պարապ",
+        "listening": "● Կը լսէ",
+        "processing": "Կը մշակուի...",
+        "error": "Սխալ"
+    },
+    "controls": {
+        "startCamera": "Միացնել խցիկը",
+        "stopCamera": "Անջատել խցիկը",
+        "finalize": "Աւարտել"
+    },
+    "caption": {
+        "placeholder": "Ճանչցուած խորագիրները պիտի երեւին հոս…",
+        "unrecognized": "Նշանը չճանչցուեցաւ — կը խնդրուի կրկնել նշանը։",
+        "confidence": "Վստահութիւն՝ {{value}}%"
+    },
+    "connection": {
+        "error": "Չյաջողեցաւ կապուիլ Նշանի ճանաչման ծառայութեան։",
+        "notConfigured": "WebSocket URL-ը կարգաւորուած չէ։"
+    },
+    "camera": {
+        "accessError": "Չյաջողեցաւ ստանալ խցիկի մուտք"
+    }
+}
