@@ -1,8 +1,14 @@
 import type { LandmarkFrame } from "./useHolisticLandmarks";
 
 // Messages sent from the client to the Gesture Recognition Service.
+export interface ClientConnectMessage {
+    type: "connect";
+    sessionId: string;
+}
+
 export interface ClientLandmarksMessage {
     type: "landmarks";
+    sessionId: string;
     timestamp: number;
     leftHand: LandmarkFrame["leftHand"];
     rightHand: LandmarkFrame["rightHand"];
@@ -12,14 +18,19 @@ export interface ClientLandmarksMessage {
 
 export interface ClientFinalizeMessage {
     type: "finalize";
+    sessionId: string;
 }
 
-export type ClientMessage = ClientLandmarksMessage | ClientFinalizeMessage;
+export type ClientMessage =
+    | ClientConnectMessage
+    | ClientLandmarksMessage
+    | ClientFinalizeMessage;
 
 // Messages received from the Gesture Recognition Service.
 export interface ServerCaptionMessage {
     type: "caption";
     text: string;
+    gloss: string[];
     confidence: number;
 }
 

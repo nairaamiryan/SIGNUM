@@ -11,13 +11,15 @@ export default function Home() {
   const { t } = useTranslation();
 
   const [caption, setCaption] = useState("");
+  const [gloss, setGloss] = useState<string[]>([]);
   const [confidence, setConfidence] = useState<number | null>(null);
   const [unrecognized, setUnrecognized] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
 
-  const { connect, disconnect, send } = useRecognitionSocket({
-    onCaption: (text, conf) => {
+  const { connect, disconnect, send, connectionState } = useRecognitionSocket({
+    onCaption: (text, glossSequence, conf) => {
       setCaption(text);
+      setGloss(glossSequence);
       setConfidence(conf);
       setUnrecognized(false);
     },
@@ -37,6 +39,7 @@ export default function Home() {
   const handleStreamStopped = useCallback(() => {
     disconnect();
     setCaption("");
+    setGloss([]);
     setConfidence(null);
     setUnrecognized(false);
   }, [disconnect]);
@@ -72,9 +75,14 @@ export default function Home() {
 
       <CaptionDisplay
         caption={caption}
+        gloss={gloss}
         confidence={confidence}
         unrecognized={unrecognized}
       />
+
+      {connectionState === "reconnecting" && (
+        <p className="text-amber-500 text-sm">{t("connection.reconnecting")}</p>
+      )}
 
       {connectionError && (
         <p className="text-red-500 text-sm max-w-2xl text-center">

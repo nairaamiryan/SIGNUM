@@ -16,11 +16,13 @@
     "caption": {
         "placeholder": "Ճանաչված ենթագրերը կհայտնվեն այստեղ…",
         "unrecognized": "Ժեստը չի ճանաչվել — խնդրում ենք կրկնել նշանը։",
-        "confidence": "Վստահություն՝ {{value}}%"
+        "confidence": "Վստահություն՝ {{value}}%",
+        "gloss": "Ժեստերի հաջորդականություն"
     },
     "connection": {
         "error": "Չհաջողվեց կապվել Ժեստերի ճանաչման ծառայությանը։",
-        "notConfigured": "WebSocket URL-ը կարգավորված չէ։"
+        "notConfigured": "WebSocket URL-ը կարգավորված չէ։",
+        "reconnecting": "Կրկին փորձում ենք կապվել..."
     },
     "camera": {
         "accessError": "Չհաջողվեց ստանալ տեսախցիկի մուտք"

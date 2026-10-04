@@ -4,12 +4,14 @@ import { useTranslation } from "react-i18next";
 
 interface CaptionDisplayProps {
     caption: string;
+    gloss: string[];
     confidence: number | null;
     unrecognized: boolean;
 }
 
 export default function CaptionDisplay({
     caption,
+    gloss,
     confidence,
     unrecognized,
 }: CaptionDisplayProps) {
@@ -24,6 +26,11 @@ export default function CaptionDisplay({
             ) : caption ? (
                 <>
                     <p className="text-lg text-zinc-900 dark:text-zinc-50">{caption}</p>
+                    {gloss.length > 0 && (
+                        <p className="text-xs text-zinc-500 mt-1">
+                            {t("caption.gloss")}: {gloss.join(" → ")}
+                        </p>
+                    )}
                     {confidence !== null && (
                         <p className="text-xs text-zinc-500 mt-1">
                             {t("caption.confidence", { value: (confidence * 100).toFixed(0) })}

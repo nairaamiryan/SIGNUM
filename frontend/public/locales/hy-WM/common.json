@@ -16,11 +16,13 @@
     "caption": {
         "placeholder": "Ճանչցուած խորագիրները պիտի երեւին հոս…",
         "unrecognized": "Նշանը չճանչցուեցաւ — կը խնդրուի կրկնել նշանը։",
-        "confidence": "Վստահութիւն՝ {{value}}%"
+        "confidence": "Վստահութիւն՝ {{value}}%",
+        "gloss": "Նշաններու յաջորդականութիւն"
     },
     "connection": {
         "error": "Չյաջողեցաւ կապուիլ Նշանի ճանաչման ծառայութեան։",
-        "notConfigured": "WebSocket URL-ը կարգաւորուած չէ։"
+        "notConfigured": "WebSocket URL-ը կարգաւորուած չէ։",
+        "reconnecting": "Կը փորձենք կրկին կապուիլ..."
     },
     "camera": {
         "accessError": "Չյաջողեցաւ ստանալ խցիկի մուտք"
