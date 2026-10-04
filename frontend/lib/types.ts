@@ -1,17 +1,20 @@
+import type { LandmarkFrame } from "./useHolisticLandmarks";
+
 // Messages sent from the client to the Gesture Recognition Service.
-export interface ClientFrameMessage {
-    type: "frame";
+export interface ClientLandmarksMessage {
+    type: "landmarks";
     timestamp: number;
-    /** Base64-encoded JPEG frame. Will be replaced by landmark coordinates
-     * once MediaPipe Holistic integration (separate subtask) is in place. */
-    data: string;
+    leftHand: LandmarkFrame["leftHand"];
+    rightHand: LandmarkFrame["rightHand"];
+    face: LandmarkFrame["face"];
+    pose: LandmarkFrame["pose"];
 }
 
 export interface ClientFinalizeMessage {
     type: "finalize";
 }
 
-export type ClientMessage = ClientFrameMessage | ClientFinalizeMessage;
+export type ClientMessage = ClientLandmarksMessage | ClientFinalizeMessage;
 
 // Messages received from the Gesture Recognition Service.
 export interface ServerCaptionMessage {

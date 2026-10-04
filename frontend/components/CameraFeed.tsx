@@ -2,179 +2,174 @@
 
 import { useRef, useState, useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { useHolisticLandmarks, type LandmarkFrame } from "@/lib/useHolisticLandmarks";
 
 export type RecognitionState = "idle" | "listening" | "processing" | "error";
 
 interface CameraFeedProps {
-    onStreamReady?: (stream: MediaStream) => void;
-    onStreamStopped?: () => void;
-    /** Called with each captured frame while listening — placeholder hook for
-     * future MediaPipe landmark extraction / WebSocket transmission. */
-    onFrameCaptured?: (canvas: HTMLCanvasElement) => void;
-    /** Called when the user explicitly finalizes the current sentence. */
-    onFinalize?: () => void;
+  onStreamReady?: (stream: MediaStream) => void;
+  onStreamStopped?: () => void;
+  /** Called with each detected landmark frame while listening. */
+  onLandmarksDetected?: (frame: LandmarkFrame) => void;
+  /** Called when the user explicitly finalizes the current sentence. */
+  onFinalize?: () => void;
 }
 
-const FRAME_CAPTURE_INTERVAL_MS = 100; // ~10 fps placeholder capture rate
+const DETECTION_INTERVAL_MS = 100; // ~10 fps
 
 export default function CameraFeed({
-    onStreamReady,
-    onStreamStopped,
-    onFrameCaptured,
-    onFinalize,
+  onStreamReady,
+  onStreamStopped,
+  onLandmarksDetected,
+  onFinalize,
 }: CameraFeedProps) {
-    const { t } = useTranslation();
+  const { t } = useTranslation();
+  const { initialize, detectFrame, close, loadError } = useHolisticLandmarks();
 
-    const videoRef = useRef<HTMLVideoElement>(null);
-    const canvasRef = useRef<HTMLCanvasElement>(null);
-    const streamRef = useRef<MediaStream | null>(null);
-    const captureIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const detectionIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-    const [state, setState] = useState<RecognitionState>("idle");
-    const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [state, setState] = useState<RecognitionState>("idle");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [modelLoading, setModelLoading] = useState(false);
 
-    const stopFrameCapture = useCallback(() => {
-        if (captureIntervalRef.current) {
-            clearInterval(captureIntervalRef.current);
-            captureIntervalRef.current = null;
-        }
-    }, []);
+  const stopDetection = useCallback(() => {
+    if (detectionIntervalRef.current) {
+      clearInterval(detectionIntervalRef.current);
+      detectionIntervalRef.current = null;
+    }
+  }, []);
 
-    const startFrameCapture = useCallback(() => {
-        stopFrameCapture();
+  const startDetection = useCallback(() => {
+    stopDetection();
 
-        captureIntervalRef.current = setInterval(() => {
-            const video = videoRef.current;
-            const canvas = canvasRef.current;
-            if (!video || !canvas || video.readyState < 2) return;
+    detectionIntervalRef.current = setInterval(() => {
+      const video = videoRef.current;
+      if (!video) return;
 
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            const ctx = canvas.getContext("2d");
-            if (!ctx) return;
+      const frame = detectFrame(video, performance.now());
+      if (frame) {
+        onLandmarksDetected?.(frame);
+      }
+    }, DETECTION_INTERVAL_MS);
+  }, [detectFrame, onLandmarksDetected, stopDetection]);
 
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  const startCamera = useCallback(async () => {
+    setErrorMessage(null);
+    setModelLoading(true);
 
-            // Placeholder: hand the captured frame off for landmark extraction /
-            // WebSocket transmission once the Gesture Recognition Service is wired up.
-            onFrameCaptured?.(canvas);
-        }, FRAME_CAPTURE_INTERVAL_MS);
-    }, [onFrameCaptured, stopFrameCapture]);
+    try {
+      await initialize();
 
-    const startCamera = useCallback(async () => {
-        setErrorMessage(null);
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: { width: 1280, height: 720, facingMode: "user" },
-                audio: false,
-            });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: 1280, height: 720, facingMode: "user" },
+        audio: false,
+      });
 
-            streamRef.current = stream;
+      streamRef.current = stream;
 
-            if (videoRef.current) {
-                videoRef.current.srcObject = stream;
-                await videoRef.current.play();
-            }
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+      }
 
-            setState("listening");
-            onStreamReady?.(stream);
-            startFrameCapture();
-        } catch (err) {
-            console.error("Camera access error:", err);
-            setState("error");
-            setErrorMessage(
-                err instanceof Error ? err.message : t("camera.accessError")
-            );
-        }
-    }, [onStreamReady, startFrameCapture, t]);
+      setModelLoading(false);
+      setState("listening");
+      onStreamReady?.(stream);
+      startDetection();
+    } catch (err) {
+      console.error("Camera/model initialization error:", err);
+      setModelLoading(false);
+      setState("error");
+      setErrorMessage(
+        err instanceof Error ? err.message : t("camera.accessError")
+      );
+    }
+  }, [initialize, onStreamReady, startDetection, t]);
 
-    const stopCamera = useCallback(() => {
-        stopFrameCapture();
+  const stopCamera = useCallback(() => {
+    stopDetection();
 
-        streamRef.current?.getTracks().forEach((track) => track.stop());
-        streamRef.current = null;
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
 
-        if (videoRef.current) {
-            videoRef.current.srcObject = null;
-        }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
 
-        setState("idle");
-        onStreamStopped?.();
-    }, [onStreamStopped, stopFrameCapture]);
+    setState("idle");
+    onStreamStopped?.();
+  }, [onStreamStopped, stopDetection]);
 
-    const finalizeRecognition = useCallback(() => {
-        if (state !== "listening") return;
-        setState("processing");
-        onFinalize?.();
+  const finalizeRecognition = useCallback(() => {
+    if (state !== "listening") return;
+    setState("processing");
+    onFinalize?.();
+  }, [state, onFinalize]);
 
-        // Placeholder: once the Gesture Recognition Service responds with a
-        // finished sentence, this should transition back to "listening" (or
-        // "idle" if the camera was stopped). For now we just log it.
-        console.log("Finalize requested — awaiting recognition service response.");
-    }, [state, onFinalize]);
-
-    // Clean up the interval and camera stream on unmount.
-    useEffect(() => {
-        return () => {
-            stopFrameCapture();
-            streamRef.current?.getTracks().forEach((track) => track.stop());
-        };
-    }, [stopFrameCapture]);
-
-    const stateLabel: Record<RecognitionState, string> = {
-        idle: t("state.idle"),
-        listening: t("state.listening"),
-        processing: t("state.processing"),
-        error: t("state.error"),
+  // Clean up on unmount.
+  useEffect(() => {
+    return () => {
+      stopDetection();
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      close();
     };
+  }, [stopDetection, close]);
 
-    return (
-        <div className="flex flex-col items-center gap-4">
-            <div className="relative w-full max-w-2xl aspect-video bg-black rounded-lg overflow-hidden">
-                <video
-                    ref={videoRef}
-                    className="w-full h-full object-cover"
-                    muted
-                    playsInline
-                />
-                {/* Hidden canvas used purely for frame capture, not displayed to the user. */}
-                <canvas ref={canvasRef} className="hidden" />
+  const stateLabel: Record<RecognitionState, string> = {
+    idle: t("state.idle"),
+    listening: t("state.listening"),
+    processing: t("state.processing"),
+    error: t("state.error"),
+  };
 
-                <div className="absolute top-2 left-2 px-3 py-1 rounded-full text-sm font-medium bg-black/60 text-white">
-                    {stateLabel[state]}
-                </div>
-            </div>
+  return (
+    <div className="flex flex-col items-center gap-4">
+      <div className="relative w-full max-w-2xl aspect-video bg-black rounded-lg overflow-hidden">
+        <video
+          ref={videoRef}
+          className="w-full h-full object-cover"
+          muted
+          playsInline
+        />
 
-            {errorMessage && (
-                <p className="text-red-500 text-sm">{errorMessage}</p>
-            )}
-
-            <div className="flex gap-3">
-                {state === "idle" || state === "error" ? (
-                    <button
-                        onClick={startCamera}
-                        className="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition"
-                    >
-                        {t("controls.startCamera")}
-                    </button>
-                ) : (
-                    <>
-                        <button
-                            onClick={finalizeRecognition}
-                            disabled={state !== "listening"}
-                            className="px-4 py-2 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {t("controls.finalize")}
-                        </button>
-                        <button
-                            onClick={stopCamera}
-                            className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 transition"
-                        >
-                            {t("controls.stopCamera")}
-                        </button>
-                    </>
-                )}
-            </div>
+        <div className="absolute top-2 left-2 px-3 py-1 rounded-full text-sm font-medium bg-black/60 text-white">
+          {modelLoading ? t("state.processing") : stateLabel[state]}
         </div>
-    );
+      </div>
+
+      {(errorMessage || loadError) && (
+        <p className="text-red-500 text-sm">{errorMessage || loadError}</p>
+      )}
+
+      <div className="flex gap-3">
+        {state === "idle" || state === "error" ? (
+          <button
+            onClick={startCamera}
+            disabled={modelLoading}
+            className="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {t("controls.startCamera")}
+          </button>
+        ) : (
+          <>
+            <button
+              onClick={finalizeRecognition}
+              disabled={state !== "listening"}
+              className="px-4 py-2 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {t("controls.finalize")}
+            </button>
+            <button
+              onClick={stopCamera}
+              className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 transition"
+            >
+              {t("controls.stopCamera")}
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
 }
