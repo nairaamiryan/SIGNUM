@@ -2,27 +2,19 @@
 
 import { useRef, useCallback, useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import type { ClientMessage, ServerMessage } from "./types";
-
-type DistributiveOmit<T, K extends keyof T> = T extends unknown ? Omit<T, K> : never;
-
-export type ConnectionState =
-    | "idle"
-    | "connecting"
-    | "open"
-    | "reconnecting"
-    | "closed"
-    | "failed";
-
-interface UseRecognitionSocketOptions {
-    onCaption?: (text: string, gloss: string[], confidence: number) => void;
-    onUnrecognized?: () => void;
-    onServerState?: (state: "idle" | "listening" | "processing" | "error") => void;
-    onError?: (message: string) => void;
-}
-
-const MAX_RECONNECT_ATTEMPTS = 3;
-const RECONNECT_BASE_DELAY_MS = 1000; // 1s, 2s, 4s backoff
+import type {
+    ClientMessage,
+    ServerMessage,
+    DistributiveOmit,
+    UseRecognitionSocketOptions,
+    ConnectionState as ConnectionStateType,
+} from "./types";
+import {
+    ConnectionState,
+    MAX_RECONNECT_ATTEMPTS,
+    RECONNECT_BASE_DELAY_MS,
+    RECONNECT_BACKOFF_MULTIPLIER,
+} from "./constants";
 
 function generateSessionId(): string {
     return typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -44,7 +36,9 @@ export function useRecognitionSocket({
     const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const intentionalCloseRef = useRef(false);
 
-    const [connectionState, setConnectionState] = useState<ConnectionState>("idle");
+    const [connectionState, setConnectionState] = useState<ConnectionStateType>(
+        ConnectionState.IDLE
+    );
 
     const clearReconnectTimeout = useCallback(() => {
         if (reconnectTimeoutRef.current) {
@@ -58,18 +52,20 @@ export function useRecognitionSocket({
             const url = process.env.NEXT_PUBLIC_WS_URL;
             if (!url) {
                 onError?.(t("connection.notConfigured"));
-                setConnectionState("failed");
+                setConnectionState(ConnectionState.FAILED);
                 return;
             }
 
-            setConnectionState(isReconnect ? "reconnecting" : "connecting");
+            setConnectionState(
+                isReconnect ? ConnectionState.RECONNECTING : ConnectionState.CONNECTING
+            );
 
             const socket = new WebSocket(url);
             socketRef.current = socket;
 
             socket.onopen = () => {
                 reconnectAttemptsRef.current = 0;
-                setConnectionState("open");
+                setConnectionState(ConnectionState.OPEN);
 
                 if (sessionIdRef.current) {
                     socket.send(
@@ -80,7 +76,7 @@ export function useRecognitionSocket({
 
             socket.onclose = () => {
                 if (intentionalCloseRef.current) {
-                    setConnectionState("closed");
+                    setConnectionState(ConnectionState.CLOSED);
                     return;
                 }
 
@@ -88,14 +84,16 @@ export function useRecognitionSocket({
                 if (reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
                     const attempt = reconnectAttemptsRef.current + 1;
                     reconnectAttemptsRef.current = attempt;
-                    const delay = RECONNECT_BASE_DELAY_MS * 2 ** (attempt - 1);
+                    const delay =
+                        RECONNECT_BASE_DELAY_MS *
+                        RECONNECT_BACKOFF_MULTIPLIER ** (attempt - 1);
 
-                    setConnectionState("reconnecting");
+                    setConnectionState(ConnectionState.RECONNECTING);
                     reconnectTimeoutRef.current = setTimeout(() => {
                         openSocket(true);
                     }, delay);
                 } else {
-                    setConnectionState("failed");
+                    setConnectionState(ConnectionState.FAILED);
                     onError?.(t("connection.error"));
                 }
             };
@@ -147,7 +145,7 @@ export function useRecognitionSocket({
         socketRef.current?.close();
         socketRef.current = null;
         sessionIdRef.current = null;
-        setConnectionState("idle");
+        setConnectionState(ConnectionState.IDLE);
     }, [clearReconnectTimeout]);
 
     const send = useCallback((message: DistributiveOmit<ClientMessage, "sessionId">) => {
@@ -172,6 +170,6 @@ export function useRecognitionSocket({
         disconnect,
         send,
         connectionState,
-        connected: connectionState === "open",
+        connected: connectionState === ConnectionState.OPEN,
     };
 }

@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import CameraFeed from "@/components/CameraFeed";
 import CaptionDisplay from "@/components/CaptionDisplay";
 import { useRecognitionSocket } from "@/lib/useRecognitionSocket";
+import { ConnectionState } from "@/lib/constants";
 import type { LandmarkFrame } from "@/lib/useHolisticLandmarks";
 
 export default function Home() {
@@ -80,7 +81,7 @@ export default function Home() {
         unrecognized={unrecognized}
       />
 
-      {connectionState === "reconnecting" && (
+      {connectionState === ConnectionState.RECONNECTING && (
         <p className="text-amber-500 text-sm">{t("connection.reconnecting")}</p>
       )}
 
