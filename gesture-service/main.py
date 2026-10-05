@@ -23,6 +23,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# TODO: Mock implementation — replace with the actual gesture recognition results.
 # Fake gloss/caption pairs returned when the client finalizes a sentence.
 MOCK_RESULTS = [
     {"gloss": ["ԵՍ", "ՋՈՒՐ", "ՈՒԶԵԼ"], "text": "Ես ջուր եմ ուզում։", "confidence": 0.92},
@@ -49,6 +50,7 @@ async def recognition_socket(websocket: WebSocket):
 
             elif msg_type == "landmarks":
                 landmark_count += 1
+                # TODO: Mock implementation — replace with the actual unrecognized-gesture detection.
                 # Simulate occasional unrecognized gestures for UI testing.
                 if landmark_count % 50 == 0:
                     await websocket.send_text(
@@ -59,6 +61,7 @@ async def recognition_socket(websocket: WebSocket):
                 await websocket.send_text(
                     json.dumps({"type": "state", "state": "processing"})
                 )
+                # TODO: Mock implementation — replace with the actual SPOTER → LLM pipeline.
                 await asyncio.sleep(1.5)  # simulate processing latency
 
                 result = random.choice(MOCK_RESULTS)
