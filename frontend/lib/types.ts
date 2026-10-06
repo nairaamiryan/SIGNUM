@@ -1,8 +1,37 @@
 import type { LandmarkFrame } from "./useHolisticLandmarks";
+import type {
+    ConnectionState as ConnectionStateMap,
+    ServerState as ServerStateMap,
+} from "./constants";
+
+// Derived from the ConnectionState constant map in constants.ts.
+export type ConnectionState =
+    (typeof ConnectionStateMap)[keyof typeof ConnectionStateMap];
+
+// Derived from the ServerState constant map in constants.ts.
+export type ServerState =
+    (typeof ServerStateMap)[keyof typeof ServerStateMap];
+
+export type DistributiveOmit<T, K extends keyof T> = T extends unknown
+    ? Omit<T, K>
+    : never;
+
+export interface UseRecognitionSocketOptions {
+    onCaption?: (text: string, gloss: string[], confidence: number) => void;
+    onUnrecognized?: () => void;
+    onServerState?: (state: ServerState) => void;
+    onError?: (message: string) => void;
+}
 
 // Messages sent from the client to the Gesture Recognition Service.
+export interface ClientConnectMessage {
+    type: "connect";
+    sessionId: string;
+}
+
 export interface ClientLandmarksMessage {
     type: "landmarks";
+    sessionId: string;
     timestamp: number;
     leftHand: LandmarkFrame["leftHand"];
     rightHand: LandmarkFrame["rightHand"];
@@ -12,20 +41,25 @@ export interface ClientLandmarksMessage {
 
 export interface ClientFinalizeMessage {
     type: "finalize";
+    sessionId: string;
 }
 
-export type ClientMessage = ClientLandmarksMessage | ClientFinalizeMessage;
+export type ClientMessage =
+    | ClientConnectMessage
+    | ClientLandmarksMessage
+    | ClientFinalizeMessage;
 
 // Messages received from the Gesture Recognition Service.
 export interface ServerCaptionMessage {
     type: "caption";
     text: string;
+    gloss: string[];
     confidence: number;
 }
 
 export interface ServerStateMessage {
     type: "state";
-    state: "idle" | "listening" | "processing" | "error";
+    state: ServerState;
 }
 
 export interface ServerUnrecognizedMessage {
