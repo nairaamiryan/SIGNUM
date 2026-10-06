@@ -1,15 +1,20 @@
 import type { LandmarkFrame } from "./useHolisticLandmarks";
-import type { ConnectionState as ConnectionStateMap } from "./constants";
+import type {
+    ConnectionState as ConnectionStateMap,
+    ServerState as ServerStateMap,
+} from "./constants";
 
 // Derived from the ConnectionState constant map in constants.ts.
 export type ConnectionState =
     (typeof ConnectionStateMap)[keyof typeof ConnectionStateMap];
 
+// Derived from the ServerState constant map in constants.ts.
+export type ServerState =
+    (typeof ServerStateMap)[keyof typeof ServerStateMap];
+
 export type DistributiveOmit<T, K extends keyof T> = T extends unknown
     ? Omit<T, K>
     : never;
-
-export type ServerState = "idle" | "listening" | "processing" | "error";
 
 export interface UseRecognitionSocketOptions {
     onCaption?: (text: string, gloss: string[], confidence: number) => void;
