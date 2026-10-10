@@ -1,0 +1,60 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SessionStatus {
+  ACTIVE
+  ENDED
+}
+
+model User {
+  id           String               @id @default(cuid())
+  email        String               @unique
+  name         String?
+  passwordHash String
+  createdAt    DateTime             @default(now())
+  sessions     RecognitionSession[]
+}
+
+model RecognitionSession {
+  id        String              @id @default(cuid())
+  userId    String
+  status    SessionStatus       @default(ACTIVE)
+  startedAt DateTime            @default(now())
+  endedAt   DateTime?
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gestures  RecognizedGesture[]
+  captions  Caption[]
+
+  @@index([userId])
+}
+
+model RecognizedGesture {
+  id           String             @id @default(cuid())
+  sessionId    String
+  gloss        String
+  classId      Int?
+  confidence   Float
+  landmarkData Json?
+  recognizedAt DateTime           @default(now())
+  session      RecognitionSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+}
+
+model Caption {
+  id         String             @id @default(cuid())
+  sessionId  String
+  text       String
+  glosses    String[]
+  confidence Float?
+  createdAt  DateTime           @default(now())
+  session    RecognitionSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+}
