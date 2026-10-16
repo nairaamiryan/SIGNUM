@@ -1,4 +1,5 @@
-﻿import { NextResponse } from "next/server";
+﻿import { ERROR_MESSAGES } from "@/lib/constants";
+import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { User } from "@/lib/db";
@@ -9,7 +10,7 @@ const schema = z.object({ email: z.string().email(), password: z.string() });
 export async function POST(req: Request) {
   const parsed = schema.safeParse(await req.json());
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+    return NextResponse.json({ error: ERROR_MESSAGES.INVALID_INPUT }, { status: 400 });
   }
   const { email, password } = parsed.data;
 
@@ -18,7 +19,7 @@ export async function POST(req: Request) {
     | { id: string; email: string; name: string | null; passwordHash: string }
     | undefined;
   if (!u || !(await bcrypt.compare(password, u.passwordHash))) {
-    return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+    return NextResponse.json({ error: ERROR_MESSAGES.INVALID_CREDENTIALS }, { status: 401 });
   }
 
   return NextResponse.json({

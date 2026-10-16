@@ -1,4 +1,5 @@
-﻿import { NextResponse } from "next/server";
+﻿import { ERROR_MESSAGES } from "@/lib/constants";
+import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { User } from "@/lib/db";
@@ -13,13 +14,13 @@ const schema = z.object({
 export async function POST(req: Request) {
   const parsed = schema.safeParse(await req.json());
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+    return NextResponse.json({ error: ERROR_MESSAGES.INVALID_INPUT }, { status: 400 });
   }
   const { email, password, name } = parsed.data;
 
   const exists = await User.findOne({ where: { email } });
   if (exists) {
-    return NextResponse.json({ error: "Email already registered" }, { status: 409 });
+    return NextResponse.json({ error: ERROR_MESSAGES.EMAIL_ALREADY_REGISTERED }, { status: 409 });
   }
 
   const user = await User.create({
