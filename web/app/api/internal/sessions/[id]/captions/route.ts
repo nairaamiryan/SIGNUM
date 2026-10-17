@@ -1,8 +1,9 @@
-﻿import { ERROR_MESSAGES } from "@/lib/constants";
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { z } from "zod";
-import { RecognitionSession, Caption } from "@/lib/db";
 import { isServiceRequest } from "@/lib/service-auth";
+import { findSessionById } from "@/lib/repositories/sessions";
+import { createCaption } from "@/lib/repositories/captions";
+import { ERROR_MESSAGES } from "@/lib/constants";
 
 const schema = z.object({
   text: z.string().min(1),
@@ -22,9 +23,8 @@ export async function POST(
   if (!parsed.success) {
     return NextResponse.json({ error: ERROR_MESSAGES.INVALID_INPUT }, { status: 400 });
   }
-  const session = await RecognitionSession.findByPk(id);
-  if (!session) return NextResponse.json({ error: ERROR_MESSAGES.SESSION_NOT_FOUND }, { status: 404 });
-
-  const caption = await Caption.create({ sessionId: id, ...parsed.data });
-  return NextResponse.json(caption, { status: 201 });
+  if (!(await findSessionById(id))) {
+    return NextResponse.json({ error: ERROR_MESSAGES.SESSION_NOT_FOUND }, { status: 404 });
+  }
+  return NextResponse.json(await createCaption(id, parsed.data), { status: 201 });
 }
