@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useRef, useCallback, useState } from "react";
 import {
@@ -22,7 +22,7 @@ const MODEL_ASSET_PATH =
     "https://storage.googleapis.com/mediapipe-models/holistic_landmarker/holistic_landmarker/float16/latest/holistic_landmarker.task";
 
 const WASM_BASE_PATH =
-    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm";
+    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1/wasm";
 
 export function useHolisticLandmarks() {
     const landmarkerRef = useRef<HolisticLandmarker | null>(null);
