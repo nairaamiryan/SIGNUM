@@ -1,16 +1,9 @@
 ﻿import { NextResponse } from "next/server";
-import { z } from "zod";
 import { isServiceRequest } from "@/lib/service-auth";
 import { findSessionById } from "@/lib/repositories/sessions";
 import { createGesture } from "@/lib/repositories/captions";
+import { gestureSchema } from "@/lib/schemas";
 import { ERROR_MESSAGES } from "@/lib/constants";
-
-const schema = z.object({
-  gloss: z.string().min(1),
-  classId: z.number().int().optional(),
-  confidence: z.number().min(0).max(1),
-  landmarkData: z.any().optional(),
-});
 
 // Raw landmark sequences are high-volume; store them only when explicitly enabled
 // (training, debugging or dataset generation).
@@ -24,7 +17,7 @@ export async function POST(
     return NextResponse.json({ error: ERROR_MESSAGES.UNAUTHORIZED }, { status: 401 });
   }
   const { id } = await params;
-  const parsed = schema.safeParse(await req.json());
+  const parsed = gestureSchema.safeParse(await req.json());
   if (!parsed.success) {
     return NextResponse.json({ error: ERROR_MESSAGES.INVALID_INPUT }, { status: 400 });
   }

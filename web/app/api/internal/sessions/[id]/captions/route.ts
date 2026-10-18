@@ -1,15 +1,9 @@
 ﻿import { NextResponse } from "next/server";
-import { z } from "zod";
 import { isServiceRequest } from "@/lib/service-auth";
 import { findSessionById } from "@/lib/repositories/sessions";
 import { createCaption } from "@/lib/repositories/captions";
+import { captionSchema } from "@/lib/schemas";
 import { ERROR_MESSAGES } from "@/lib/constants";
-
-const schema = z.object({
-  text: z.string().min(1),
-  glosses: z.array(z.string()).default([]),
-  confidence: z.number().min(0).max(1).optional(),
-});
 
 export async function POST(
   req: Request,
@@ -19,7 +13,7 @@ export async function POST(
     return NextResponse.json({ error: ERROR_MESSAGES.UNAUTHORIZED }, { status: 401 });
   }
   const { id } = await params;
-  const parsed = schema.safeParse(await req.json());
+  const parsed = captionSchema.safeParse(await req.json());
   if (!parsed.success) {
     return NextResponse.json({ error: ERROR_MESSAGES.INVALID_INPUT }, { status: 400 });
   }

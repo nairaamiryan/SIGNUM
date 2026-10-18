@@ -1,8 +1,8 @@
-﻿import { ERROR_MESSAGES } from "@/lib/constants";
-import { NextResponse } from "next/server";
-import { z } from "zod";
+﻿import { NextResponse } from "next/server";
 import { User } from "@/lib/db";
 import { getUserId } from "@/lib/session-auth";
+import { updateUserSchema } from "@/lib/schemas";
+import { ERROR_MESSAGES } from "@/lib/constants";
 
 const attributes = ["id", "email", "name", "createdAt"];
 
@@ -15,13 +15,11 @@ export async function GET(req: Request) {
   return NextResponse.json(user);
 }
 
-const patchSchema = z.object({ name: z.string().min(1).max(100) });
-
 export async function PATCH(req: Request) {
   const userId = getUserId(req);
   if (!userId) return NextResponse.json({ error: ERROR_MESSAGES.UNAUTHORIZED }, { status: 401 });
 
-  const parsed = patchSchema.safeParse(await req.json());
+  const parsed = updateUserSchema.safeParse(await req.json());
   if (!parsed.success) {
     return NextResponse.json({ error: ERROR_MESSAGES.INVALID_INPUT }, { status: 400 });
   }
