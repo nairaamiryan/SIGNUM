@@ -1,14 +1,9 @@
-﻿import { ERROR_MESSAGES } from "@/lib/constants";
-import { NextResponse } from "next/server";
-import { z } from "zod";
-import { RecognitionSession, Caption } from "@/lib/db";
+﻿import { NextResponse } from "next/server";
 import { isServiceRequest } from "@/lib/service-auth";
-
-const schema = z.object({
-  text: z.string().min(1),
-  glosses: z.array(z.string()).default([]),
-  confidence: z.number().min(0).max(1).optional(),
-});
+import { findSessionById } from "@/lib/repositories/sessions";
+import { createCaption } from "@/lib/repositories/captions";
+import { captionSchema } from "@/lib/schemas";
+import { ERROR_MESSAGES } from "@/lib/constants";
 
 export async function POST(
   req: Request,
@@ -18,13 +13,12 @@ export async function POST(
     return NextResponse.json({ error: ERROR_MESSAGES.UNAUTHORIZED }, { status: 401 });
   }
   const { id } = await params;
-  const parsed = schema.safeParse(await req.json());
+  const parsed = captionSchema.safeParse(await req.json());
   if (!parsed.success) {
     return NextResponse.json({ error: ERROR_MESSAGES.INVALID_INPUT }, { status: 400 });
   }
-  const session = await RecognitionSession.findByPk(id);
-  if (!session) return NextResponse.json({ error: ERROR_MESSAGES.SESSION_NOT_FOUND }, { status: 404 });
-
-  const caption = await Caption.create({ sessionId: id, ...parsed.data });
-  return NextResponse.json(caption, { status: 201 });
+  if (!(await findSessionById(id))) {
+    return NextResponse.json({ error: ERROR_MESSAGES.SESSION_NOT_FOUND }, { status: 404 });
+  }
+  return NextResponse.json(await createCaption(id, parsed.data), { status: 201 });
 }

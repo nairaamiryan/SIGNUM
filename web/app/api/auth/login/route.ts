@@ -1,14 +1,12 @@
-﻿import { ERROR_MESSAGES } from "@/lib/constants";
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { z } from "zod";
 import { User } from "@/lib/db";
 import { signToken } from "@/lib/auth";
-
-const schema = z.object({ email: z.string().email(), password: z.string() });
+import { loginSchema } from "@/lib/schemas";
+import { ERROR_MESSAGES } from "@/lib/constants";
 
 export async function POST(req: Request) {
-  const parsed = schema.safeParse(await req.json());
+  const parsed = loginSchema.safeParse(await req.json());
   if (!parsed.success) {
     return NextResponse.json({ error: ERROR_MESSAGES.INVALID_INPUT }, { status: 400 });
   }

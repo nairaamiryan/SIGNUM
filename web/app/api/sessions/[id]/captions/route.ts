@@ -1,7 +1,8 @@
-﻿import { ERROR_MESSAGES } from "@/lib/constants";
-import { NextResponse } from "next/server";
-import { RecognitionSession, Caption } from "@/lib/db";
+﻿import { NextResponse } from "next/server";
 import { getUserId } from "@/lib/session-auth";
+import { findUserSession } from "@/lib/repositories/sessions";
+import { listCaptions } from "@/lib/repositories/captions";
+import { ERROR_MESSAGES } from "@/lib/constants";
 
 export async function GET(
   req: Request,
@@ -11,12 +12,8 @@ export async function GET(
   if (!userId) return NextResponse.json({ error: ERROR_MESSAGES.UNAUTHORIZED }, { status: 401 });
 
   const { id } = await params;
-  const session = await RecognitionSession.findOne({ where: { id, userId } });
-  if (!session) return NextResponse.json({ error: ERROR_MESSAGES.NOT_FOUND }, { status: 404 });
-
-  const captions = await Caption.findAll({
-    where: { sessionId: id },
-    order: [["createdAt", "ASC"]],
-  });
-  return NextResponse.json(captions);
+  if (!(await findUserSession(id, userId))) {
+    return NextResponse.json({ error: ERROR_MESSAGES.NOT_FOUND }, { status: 404 });
+  }
+  return NextResponse.json(await listCaptions(id));
 }
