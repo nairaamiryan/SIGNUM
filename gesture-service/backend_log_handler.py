@@ -6,17 +6,21 @@ import sys
 import threading
 import urllib.request
 
-DEFAULT_URL = "http://localhost:3000/api/internal/logs"
-MAX_MESSAGE_LEN = 2000
-
 
 class BackendLogHandler(logging.Handler):
-    """Sends log records to the Next.js backend so every component writes to one log file."""
+    """Sends log records to the Next.js backend so every component writes to one log file.
 
-    def __init__(self, url=None, service_key=None, level=logging.INFO):
+    Configuration (environment / .env):
+      BACKEND_LOG_URL   - endpoint of the Next.js log receiver
+      SERVICE_API_KEY   - shared service key (x-service-key header)
+      MAX_MESSAGE_LEN   - max characters of a forwarded message
+    """
+
+    def __init__(self, level=logging.INFO):
         super().__init__(level)
-        self.url = url or os.environ.get("BACKEND_LOG_URL", DEFAULT_URL)
-        self.service_key = service_key or os.environ.get("SERVICE_API_KEY", "")
+        self.url = os.environ.get("BACKEND_LOG_URL", "")
+        self.service_key = os.environ.get("SERVICE_API_KEY", "")
+        self.max_len = int(os.environ.get("MAX_MESSAGE_LEN", "0") or 0)
         self._queue = queue.Queue(maxsize=1000)
         self._warned = False
         threading.Thread(target=self._worker, daemon=True).start()
@@ -32,13 +36,17 @@ class BackendLogHandler(logging.Handler):
         return "DEBUG"
 
     def emit(self, record):
-        if not self.service_key:
+        if not self.url or not self.service_key or self.max_len <= 0:
             if not self._warned:
                 self._warned = True
-                print("BackendLogHandler: SERVICE_API_KEY is not set, logs are not forwarded", file=sys.stderr)
+                print(
+                    "BackendLogHandler: BACKEND_LOG_URL, SERVICE_API_KEY or MAX_MESSAGE_LEN "
+                    "is not set, logs are not forwarded",
+                    file=sys.stderr,
+                )
             return
         try:
-            message = (self.format(record) or "-")[:MAX_MESSAGE_LEN]
+            message = (self.format(record) or "-")[: self.max_len]
             session_id = getattr(record, "session_id", None)
             payload = {
                 "level": self._map_level(record.levelno),
