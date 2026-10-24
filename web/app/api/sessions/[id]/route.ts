@@ -2,6 +2,7 @@
 import { getUserId } from "@/lib/session-auth";
 import { endUserSession } from "@/lib/repositories/sessions";
 import { ERROR_MESSAGES } from "@/lib/constants";
+import { logger } from "@/lib/logger";
 
 export async function PATCH(
   req: Request,
@@ -14,5 +15,6 @@ export async function PATCH(
   if (!(await endUserSession(id, userId))) {
     return NextResponse.json({ error: ERROR_MESSAGES.NOT_FOUND }, { status: 404 });
   }
+  logger.info("APP", "Recognition session ended", { audit: true, sessionId: id });
   return NextResponse.json({ ok: true });
 }

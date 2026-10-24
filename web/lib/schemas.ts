@@ -27,3 +27,10 @@ export const gestureSchema = z.object({
   confidence: z.number().min(0).max(1),
   landmarkData: z.any().optional(),
 });
+
+export const logSchema = z.object({
+  level: z.enum(["DEBUG", "INFO", "WARN", "ERROR"]),
+  message: z.string().min(1).max(2000),
+  audit: z.boolean().optional(),
+  sessionId: z.string().nullable().optional(),
+});

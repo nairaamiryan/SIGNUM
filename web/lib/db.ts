@@ -1,5 +1,6 @@
 ﻿import { Sequelize, DataTypes } from "sequelize";
 import pg from "pg";
+import { logger } from "@/lib/logger";
 
 const globalForDb = globalThis as unknown as { sequelize?: Sequelize };
 
@@ -8,7 +9,15 @@ export const sequelize =
   new Sequelize(process.env.DATABASE_URL as string, {
     dialect: "postgres",
     dialectModule: pg,
-    logging: false,
+    benchmark: true,
+    logging: (sql: string, ms?: number) => {
+      const slow = Number(process.env.DB_SLOW_QUERY_MS ?? 200);
+      if (typeof ms === "number" && ms >= slow) {
+        logger.warn("DB", `Slow query (${ms}ms): ${sql.slice(0, 300)}`);
+      } else {
+        logger.debug("DB", sql.slice(0, 300));
+      }
+    },
   });
 
 if (process.env.NODE_ENV !== "production") globalForDb.sequelize = sequelize;
