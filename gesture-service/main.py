@@ -1,4 +1,4 @@
-"""
+﻿"""
 FastAPI WebSocket Gesture Recognition Service.
 
 Implements the full recognition pipeline described in KAN-15:
@@ -14,6 +14,7 @@ See docs/websocket-contract.md for the full message protocol.
 
 import json
 import logging
+from backend_log_handler import BackendLogHandler
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -25,6 +26,7 @@ from spotting import is_segment_active, is_segment_idle
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("gesture-service")
+logger.addHandler(BackendLogHandler())
 
 app = FastAPI()
 
@@ -141,7 +143,7 @@ async def recognition_socket(websocket: WebSocket):
     except WebSocketDisconnect:
         if session:
             registry.remove(session.session_id)
-            logger.info("Session %s disconnected", session.session_id)
+            logger.info("Session %s disconnected", session.session_id, extra={"session_id": session.session_id, "audit": True})
     except Exception:
         logger.exception("Unexpected error in recognition_socket")
         if session:
