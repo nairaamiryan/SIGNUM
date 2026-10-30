@@ -49,12 +49,19 @@ export function useRecognitionSocket({
 
     const openSocket = useCallback(
         (isReconnect: boolean) => {
-            const url = process.env.NEXT_PUBLIC_WS_URL;
+            let url = process.env.NEXT_PUBLIC_WS_URL;
             if (!url) {
                 console.error("[RecognitionSocket] NEXT_PUBLIC_WS_URL is not configured");
                 onError?.(t("connection.notConfigured"));
                 setConnectionState(ConnectionState.FAILED);
                 return;
+            }
+
+            // WebSocket in browsers requires ws:// or wss:// scheme
+            if (url.startsWith("https://")) {
+                url = url.replace(/^https:\/\//i, "wss://");
+            } else if (url.startsWith("http://")) {
+                url = url.replace(/^http:\/\//i, "ws://");
             }
 
             console.log(`[RecognitionSocket] Connecting to ${url} (reconnect=${isReconnect})...`);
