@@ -81,6 +81,7 @@ def parse_landmark_frame(message: dict) -> LandmarkFrame:
 
 
 @app.websocket("/ws")
+@app.websocket("/")
 async def recognition_socket(websocket: WebSocket):
     await websocket.accept()
     client_info = f"{websocket.client.host}:{websocket.client.port}" if websocket.client else "unknown"

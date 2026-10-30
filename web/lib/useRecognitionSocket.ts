@@ -64,6 +64,20 @@ export function useRecognitionSocket({
                 url = url.replace(/^http:\/\//i, "ws://");
             }
 
+            // Ensure /ws endpoint path is appended if missing
+            try {
+                const httpUrl = url.replace(/^wss:\/\//i, "https://").replace(/^ws:\/\//i, "http://");
+                const parsed = new URL(httpUrl);
+                if (!parsed.pathname || parsed.pathname === "/") {
+                    parsed.pathname = "/ws";
+                    url = (url.startsWith("wss://") ? "wss://" : "ws://") + parsed.host + parsed.pathname + parsed.search;
+                }
+            } catch {
+                if (!url.endsWith("/ws")) {
+                    url = url.replace(/\/+$/, "") + "/ws";
+                }
+            }
+
             console.log(`[RecognitionSocket] Connecting to ${url} (reconnect=${isReconnect})...`);
             setConnectionState(
                 isReconnect ? ConnectionState.RECONNECTING : ConnectionState.CONNECTING
