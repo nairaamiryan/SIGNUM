@@ -66,50 +66,60 @@ async function zipStaleLogs() {
   await cleanupOldArchives();
 }
 
+const isProduction = process.env.NODE_ENV === "production";
+const enableFileLogging =
+  process.env.ENABLE_FILE_LOGS === "true" || (!isProduction && process.env.ENABLE_FILE_LOGS !== "false");
+
+function initFileLogging(transports: winston.transport[]) {
+  try {
+    fs.mkdirSync(LOG_DIR, { recursive: true });
+
+    const transport = new DailyRotateFile({
+      dirname: LOG_DIR,
+      filename: "signum-%DATE%.log",
+      datePattern: "YYYY-MM-DD",
+      utc: true,
+      maxSize: `${MAX_SIZE_MB}m`,
+    });
+
+    transport.on("rotate", (oldFile: string) => {
+      zipAndRemove(oldFile)
+        .then(cleanupOldArchives)
+        .catch((err) => console.error("Log archive failure:", err));
+    });
+
+    zipStaleLogs().catch((err) => console.error("Log archive failure:", err));
+    transports.push(transport);
+  } catch (err) {
+    console.error("Failed to initialize file logging:", err);
+  }
+}
+
 function createLogger() {
-  fs.mkdirSync(LOG_DIR, { recursive: true });
+  const consoleFormat = winston.format.combine(
+    ...(isProduction ? [] : [winston.format.colorize()]),
+    winston.format.timestamp(),
+    winston.format.printf((info) => {
+      const audit = info.audit ? "[AUDIT] " : "";
+      const session = info.sessionId ? `[${info.sessionId}] ` : "";
+      const msg = String(info.message).replace(/\r?\n/g, " ");
+      return `[${info.timestamp ?? new Date().toISOString()}] [${String(info.level).toUpperCase()}] [${info.component ?? "APP"}] ${audit}${session}${msg}`;
+    })
+  );
 
-  const transport = new DailyRotateFile({
-    dirname: LOG_DIR,
-    filename: "signum-%DATE%.log",
-    datePattern: "YYYY-MM-DD",
-    utc: true,
-    maxSize: `${MAX_SIZE_MB}m`,
-  });
+  const transports: winston.transport[] = [
+    new winston.transports.Console({
+      format: consoleFormat,
+    }),
+  ];
 
-  transport.on("rotate", (oldFile: string) => {
-    zipAndRemove(oldFile)
-      .then(cleanupOldArchives)
-      .catch((err) => console.error("Log archive failure:", err));
-  });
-
-  zipStaleLogs().catch((err) => console.error("Log archive failure:", err));
+  if (enableFileLogging) {
+    initFileLogging(transports);
+  }
 
   return winston.createLogger({
     level: LEVEL,
-    format: winston.format.combine(
-      winston.format.timestamp(),
-      winston.format.printf((info) => {
-        const audit = info.audit ? "[AUDIT] " : "";
-        const session = info.sessionId ?? "-";
-        const msg = String(info.message).replace(/\r?\n/g, " ");
-        return `[${info.timestamp}] [${String(info.level).toUpperCase()}] [${info.component}] ${audit}[${session}] ${msg}`;
-      })
-    ),
-    transports: [
-      transport,
-      new winston.transports.Console({
-        format: winston.format.combine(
-          winston.format.colorize(),
-          winston.format.printf((info) => {
-            const audit = info.audit ? "[AUDIT] " : "";
-            const session = info.sessionId ? `[${info.sessionId}] ` : "";
-            const msg = String(info.message).replace(/\r?\n/g, " ");
-            return `[${info.timestamp ?? new Date().toISOString()}] [${String(info.level)}] [${info.component ?? "APP"}] ${audit}${session}${msg}`;
-          })
-        ),
-      }),
-    ],
+    transports,
   });
 }
 
