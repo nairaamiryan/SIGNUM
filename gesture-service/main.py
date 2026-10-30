@@ -1,4 +1,4 @@
-﻿"""
+"""
 FastAPI WebSocket Gesture Recognition Service.
 
 Implements the full recognition pipeline described in KAN-15:
@@ -14,6 +14,8 @@ See docs/websocket-contract.md for the full message protocol.
 
 import json
 import logging
+import os
+from contextlib import asynccontextmanager
 from backend_log_handler import BackendLogHandler
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -24,11 +26,24 @@ from landmark_buffer import LandmarkFrame
 from session import RecognitionState, SessionRegistry
 from spotting import is_segment_active, is_segment_idle
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] [%(name)s] %(message)s",
+)
 logger = logging.getLogger("gesture-service")
 logger.addHandler(BackendLogHandler())
 
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    backend_url = os.environ.get("BACKEND_LOG_URL", "not configured")
+    logger.info("=== Gesture Service starting ===")
+    logger.info("Backend log forward endpoint: %s", backend_url)
+    yield
+    logger.info("=== Gesture Service shutting down ===")
+
+
+app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -38,6 +53,17 @@ app.add_middleware(
 )
 
 registry = SessionRegistry()
+
+
+@app.get("/")
+@app.get("/health")
+async def health_check():
+    logger.info("Health check ping received")
+    return {
+        "status": "ok",
+        "service": "gesture-service",
+        "active_sessions": registry.active_count() if hasattr(registry, "active_count") else "running",
+    }
 
 
 async def send_state(websocket: WebSocket, state: RecognitionState) -> None:
@@ -57,6 +83,8 @@ def parse_landmark_frame(message: dict) -> LandmarkFrame:
 @app.websocket("/ws")
 async def recognition_socket(websocket: WebSocket):
     await websocket.accept()
+    client_info = f"{websocket.client.host}:{websocket.client.port}" if websocket.client else "unknown"
+    logger.info("WebSocket connection accepted from client %s", client_info)
     session = None
 
     try:
@@ -86,6 +114,12 @@ async def recognition_socket(websocket: WebSocket):
 
             if msg_type == "connect":
                 session.state = RecognitionState.LISTENING
+                logger.info(
+                    "Session %s connected and set to LISTENING (client: %s)",
+                    session_id,
+                    client_info,
+                    extra={"session_id": session_id, "audit": True},
+                )
                 await send_state(websocket, session.state)
 
             elif msg_type == "landmarks":

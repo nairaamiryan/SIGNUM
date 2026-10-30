@@ -1,14 +1,30 @@
-﻿import { Sequelize, DataTypes } from "sequelize";
+import { Sequelize, DataTypes } from "sequelize";
 import pg from "pg";
 import { logger } from "@/lib/logger";
 
-const globalForDb = globalThis as unknown as { sequelize?: Sequelize };
+const globalForDb = globalThis as unknown as {
+  sequelize?: Sequelize;
+  dbAuthChecked?: boolean;
+};
+
+const dbUrl = process.env.DATABASE_URL as string;
+const isProd = process.env.NODE_ENV === "production" || (dbUrl && dbUrl.includes("sslmode="));
+const dialectOptions =
+  isProd && dbUrl && !dbUrl.includes("localhost") && !dbUrl.includes("127.0.0.1")
+    ? {
+        ssl: {
+          require: true,
+          rejectUnauthorized: false,
+        },
+      }
+    : undefined;
 
 export const sequelize =
   globalForDb.sequelize ??
-  new Sequelize(process.env.DATABASE_URL as string, {
+  new Sequelize(dbUrl, {
     dialect: "postgres",
     dialectModule: pg,
+    dialectOptions,
     benchmark: true,
     logging: (sql: string, ms?: number) => {
       const slow = Number(process.env.DB_SLOW_QUERY_MS ?? 200);
@@ -21,6 +37,23 @@ export const sequelize =
   });
 
 if (process.env.NODE_ENV !== "production") globalForDb.sequelize = sequelize;
+
+export async function checkDbConnection(): Promise<boolean> {
+  try {
+    await sequelize.authenticate();
+    logger.info("DB", "Database connection verified successfully.");
+    return true;
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    logger.error("DB", `Database connection failed: ${errorMsg}`);
+    return false;
+  }
+}
+
+if (!globalForDb.dbAuthChecked) {
+  globalForDb.dbAuthChecked = true;
+  checkDbConnection().catch(() => {});
+}
 
 function init() {
   if (sequelize.models.User) return;

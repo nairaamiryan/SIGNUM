@@ -1,4 +1,4 @@
-﻿import fs from "fs";
+import fs from "fs";
 import path from "path";
 import { createRequire } from "module";
 import winston from "winston";
@@ -96,7 +96,20 @@ function createLogger() {
         return `[${info.timestamp}] [${String(info.level).toUpperCase()}] [${info.component}] ${audit}[${session}] ${msg}`;
       })
     ),
-    transports: [transport],
+    transports: [
+      transport,
+      new winston.transports.Console({
+        format: winston.format.combine(
+          winston.format.colorize(),
+          winston.format.printf((info) => {
+            const audit = info.audit ? "[AUDIT] " : "";
+            const session = info.sessionId ? `[${info.sessionId}] ` : "";
+            const msg = String(info.message).replace(/\r?\n/g, " ");
+            return `[${info.timestamp ?? new Date().toISOString()}] [${String(info.level)}] [${info.component ?? "APP"}] ${audit}${session}${msg}`;
+          })
+        ),
+      }),
+    ],
   });
 }
 

@@ -1,4 +1,4 @@
-﻿import json
+import json
 import logging
 import os
 import queue
@@ -59,6 +59,11 @@ class BackendLogHandler(logging.Handler):
             pass  # never let logging break the service
 
     def _worker(self):
+        import time
+
+        backend_connected = False
+        last_error_time = 0
+
         while True:
             payload = self._queue.get()
             try:
@@ -71,6 +76,22 @@ class BackendLogHandler(logging.Handler):
                     },
                     method="POST",
                 )
-                urllib.request.urlopen(request, timeout=3).close()
-            except Exception:
-                pass  # backend unavailable: drop the line, do not crash
+                with urllib.request.urlopen(request, timeout=3) as resp:
+                    if not backend_connected:
+                        backend_connected = True
+                        print(
+                            f"[BackendLogHandler] Successfully connected to Next.js backend logs at {self.url} (status: {resp.status})",
+                            file=sys.stdout,
+                            flush=True,
+                        )
+            except Exception as exc:
+                now = time.time()
+                # Rate limit error printing to avoid spamming console
+                if not backend_connected or (now - last_error_time > 30):
+                    last_error_time = now
+                    backend_connected = False
+                    print(
+                        f"[BackendLogHandler] Unable to deliver log to backend {self.url}: {exc}",
+                        file=sys.stderr,
+                        flush=True,
+                    )

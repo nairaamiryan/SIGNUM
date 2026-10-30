@@ -51,11 +51,13 @@ export function useRecognitionSocket({
         (isReconnect: boolean) => {
             const url = process.env.NEXT_PUBLIC_WS_URL;
             if (!url) {
+                console.error("[RecognitionSocket] NEXT_PUBLIC_WS_URL is not configured");
                 onError?.(t("connection.notConfigured"));
                 setConnectionState(ConnectionState.FAILED);
                 return;
             }
 
+            console.log(`[RecognitionSocket] Connecting to ${url} (reconnect=${isReconnect})...`);
             setConnectionState(
                 isReconnect ? ConnectionState.RECONNECTING : ConnectionState.CONNECTING
             );
@@ -64,6 +66,7 @@ export function useRecognitionSocket({
             socketRef.current = socket;
 
             socket.onopen = () => {
+                console.log(`[RecognitionSocket] WebSocket connected successfully to ${url}. Session: ${sessionIdRef.current ?? "none"}`);
                 reconnectAttemptsRef.current = 0;
                 setConnectionState(ConnectionState.OPEN);
 
@@ -74,7 +77,8 @@ export function useRecognitionSocket({
                 }
             };
 
-            socket.onclose = () => {
+            socket.onclose = (event) => {
+                console.warn(`[RecognitionSocket] WebSocket disconnected (code: ${event.code}, reason: ${event.reason || "none"}, clean: ${event.wasClean})`);
                 if (intentionalCloseRef.current) {
                     setConnectionState(ConnectionState.CLOSED);
                     return;
@@ -88,17 +92,20 @@ export function useRecognitionSocket({
                         RECONNECT_BASE_DELAY_MS *
                         RECONNECT_BACKOFF_MULTIPLIER ** (attempt - 1);
 
+                    console.log(`[RecognitionSocket] Reconnecting attempt ${attempt}/${MAX_RECONNECT_ATTEMPTS} in ${delay}ms...`);
                     setConnectionState(ConnectionState.RECONNECTING);
                     reconnectTimeoutRef.current = setTimeout(() => {
                         openSocket(true);
                     }, delay);
                 } else {
+                    console.error("[RecognitionSocket] Max reconnect attempts reached. Connection failed.");
                     setConnectionState(ConnectionState.FAILED);
                     onError?.(t("connection.error"));
                 }
             };
 
-            socket.onerror = () => {
+            socket.onerror = (event) => {
+                console.error("[RecognitionSocket] WebSocket encountered an error:", event);
                 onError?.(t("connection.error"));
             };
 
