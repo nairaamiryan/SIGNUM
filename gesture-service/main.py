@@ -24,7 +24,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from classification import classify_segment
 from landmark_buffer import LandmarkFrame
 from session import RecognitionState, SessionRegistry
-from spotting import is_segment_active, is_segment_idle
 
 logging.basicConfig(
     level=logging.INFO,
@@ -138,12 +137,24 @@ async def recognition_socket(websocket: WebSocket):
                     continue
 
                 session.buffer.add(frame)
-                frames = session.buffer.frames()
 
-                # Gesture spotting: flag unrecognized/noise segments that
-                # never settle into a clean active->idle gesture cycle.
-                if is_segment_active(frames) and is_segment_idle(frames[-5:]):
-                    await websocket.send_text(json.dumps({"type": "unrecognized"}))
+                # Gesture spotting: the spotter consumes each frame and emits
+                # finished gesture segments, which go to classification.
+                for segment in session.spotter.process(frame):
+                    seg_result = classify_segment(segment.frames)
+                    if seg_result is None:
+                        await websocket.send_text(json.dumps({"type": "unrecognized"}))
+                    else:
+                        await websocket.send_text(
+                            json.dumps(
+                                {
+                                    "type": "caption",
+                                    "text": seg_result.text,
+                                    "gloss": seg_result.gloss,
+                                    "confidence": seg_result.confidence,
+                                }
+                            )
+                        )
 
             elif msg_type == "finalize":
                 if session.buffer.is_empty:
@@ -153,7 +164,10 @@ async def recognition_socket(websocket: WebSocket):
                 session.state = RecognitionState.PROCESSING
                 await send_state(websocket, session.state)
 
-                result = classify_segment(session.buffer.frames())
+                # Close the segment still in progress; fall back to the buffer if none.
+                open_segment = session.spotter.flush()
+                final_frames = open_segment.frames if open_segment else session.buffer.frames()
+                result = classify_segment(final_frames)
 
                 if result is None:
                     await websocket.send_text(json.dumps({"type": "unrecognized"}))

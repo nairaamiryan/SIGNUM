@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 from landmark_buffer import LandmarkBuffer
+from spotting import HeuristicGestureSpotter
 
 
 class RecognitionState(str, Enum):
@@ -25,6 +26,7 @@ class Session:
     session_id: str
     state: RecognitionState = RecognitionState.IDLE
     buffer: LandmarkBuffer = field(default_factory=LandmarkBuffer)
+    spotter: HeuristicGestureSpotter = field(default_factory=HeuristicGestureSpotter)
     last_activity: float = field(default_factory=time.monotonic)
 
     def touch(self) -> None:
@@ -38,6 +40,7 @@ class Session:
         """Clears the buffer and returns to listening state after a
         finalize/classification cycle completes."""
         self.buffer.clear()
+        self.spotter.reset()
         self.state = RecognitionState.LISTENING
 
 
