@@ -28,3 +28,8 @@ MOCK_CONFIDENCE = 0.75
 # How long (seconds) a session may remain idle before the server treats it
 # as stale and clears its buffer.
 SESSION_IDLE_TIMEOUT_SECONDS = 60
+END_MOTION_THRESHOLD = 0.012
+PRE_ROLL_FRAMES = 3
+COARTICULATION_MIN_SEGMENT_FRAMES = 8
+COARTICULATION_DIP_RATIO = 0.5
+SEGMENT_MAX_FRAMES = 90
