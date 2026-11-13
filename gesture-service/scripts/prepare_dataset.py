@@ -18,14 +18,15 @@ import os
 import sys
 import time
 import urllib.request
+from collections import Counter
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 import torch
 
 # Ensure parent directory is in sys.path to import spoter package
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from spoter.label_map import GlossLabelMap, russian_gloss_to_armenian
+from spoter.label_map import GlossLabelMap, RUSSIAN_TO_ARMENIAN_CORE, russian_gloss_to_armenian
 from spoter.normalization import normalize_spoter_tensor
 from spoter.preprocessing import slovo_to_spoter_tensor
 
@@ -96,43 +97,85 @@ def process_sample(sample: dict, label_map: GlossLabelMap) -> Tuple[torch.Tensor
 
 def prepare(
     output_dir: str = "data",
-    max_train_samples: int = 300,
-    max_test_samples: int = 60,
+    dataset_dir: Optional[str] = None,
+    max_train_samples: Optional[int] = None,
+    max_test_samples: Optional[int] = None,
     batch_fetch_size: int = 50,
+    top_k_classes: Optional[int] = None,
+    core_only: bool = False,
 ):
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    logger.info("Fetching %d training samples from Hugging Face API...", max_train_samples)
-    train_raw: List[dict] = []
-    offset = 0
-    while len(train_raw) < max_train_samples:
-        chunk = fetch_hf_rows("train", offset=offset, length=min(batch_fetch_size, max_train_samples - len(train_raw)))
-        if not chunk:
-            break
-        train_raw.extend(chunk)
-        offset += len(chunk)
-        logger.info("Fetched %d / %d train samples", len(train_raw), max_train_samples)
+    if dataset_dir and Path(dataset_dir).exists():
+        from datasets import load_from_disk
 
-    logger.info("Fetching %d test samples from Hugging Face API...", max_test_samples)
-    test_raw: List[dict] = []
-    offset = 0
-    while len(test_raw) < max_test_samples:
-        chunk = fetch_hf_rows("test", offset=offset, length=min(batch_fetch_size, max_test_samples - len(test_raw)))
-        if not chunk:
-            break
-        test_raw.extend(chunk)
-        offset += len(chunk)
-        logger.info("Fetched %d / %d test samples", len(test_raw), max_test_samples)
+        logger.info("Loading local dataset from %s...", dataset_dir)
+        ds = load_from_disk(dataset_dir)
+        needed_cols = ["gloss", "text", "hand_0", "hand_1", "pose", "hand_0_mask", "hand_1_mask"]
+        train_split = ds["train"]
+        avail_cols = [c for c in needed_cols if c in train_split.column_names]
+        train_split = train_split.select_columns(avail_cols)
+        test_split = ds.get("test") or ds.get("validation")
+        if test_split is not None:
+            test_split = test_split.select_columns([c for c in needed_cols if c in test_split.column_names])
+        if max_train_samples:
+            train_split = train_split.select(range(min(max_train_samples, len(train_split))))
+        if test_split is not None and max_test_samples:
+            test_split = test_split.select(range(min(max_test_samples, len(test_split))))
+        train_raw = train_split
+        test_raw = test_split if test_split is not None else []
+        logger.info("Loaded %d train and %d test samples from disk.", len(train_raw), len(test_raw))
+    else:
+        max_tr = max_train_samples or 300
+        max_te = max_test_samples or 60
+        logger.info("Fetching %d training samples from Hugging Face API...", max_tr)
+        train_raw: List[dict] = []
+        offset = 0
+        while len(train_raw) < max_tr:
+            chunk = fetch_hf_rows("train", offset=offset, length=min(batch_fetch_size, max_tr - len(train_raw)))
+            if not chunk:
+                break
+            train_raw.extend(chunk)
+            offset += len(chunk)
+            logger.info("Fetched %d / %d train samples", len(train_raw), max_tr)
 
-    # Collect unique glosses across downloaded train and test samples
-    glosses_set = set()
-    for s in train_raw + test_raw:
-        g = (s.get("gloss") or s.get("text") or "").strip()
-        if g:
-            glosses_set.add(g)
+        logger.info("Fetching %d test samples from Hugging Face API...", max_te)
+        test_raw: List[dict] = []
+        offset = 0
+        while len(test_raw) < max_te:
+            chunk = fetch_hf_rows("test", offset=offset, length=min(batch_fetch_size, max_te - len(test_raw)))
+            if not chunk:
+                break
+            test_raw.extend(chunk)
+            offset += len(chunk)
+            logger.info("Fetched %d / %d test samples", len(test_raw), max_te)
 
-    sorted_glosses = sorted(list(glosses_set))
+    # Collect gloss counts across train samples (excluding 'no_event')
+    gloss_counts: Counter[str] = Counter()
+    if hasattr(train_raw, "column_names"):
+        col = "gloss" if "gloss" in train_raw.column_names else "text"
+        for g in train_raw[col]:
+            g_str = (g or "").strip()
+            if g_str and g_str != "no_event":
+                gloss_counts[g_str] += 1
+    else:
+        for s in train_raw:
+            g = (s.get("gloss") or s.get("text") or "").strip()
+            if g and g != "no_event":
+                gloss_counts[g] += 1
+
+    if core_only:
+        gloss_counts = Counter({g: c for g, c in gloss_counts.items() if g.lower() in RUSSIAN_TO_ARMENIAN_CORE})
+        logger.info("Filtered to %d curated core Armenian classes.", len(gloss_counts))
+
+    if top_k_classes:
+        selected_glosses = [g for g, _ in gloss_counts.most_common(top_k_classes)]
+        logger.info("Selected top %d most frequent classes.", len(selected_glosses))
+    else:
+        selected_glosses = list(gloss_counts.keys())
+
+    sorted_glosses = sorted(selected_glosses)
     logger.info("Building label map for %d unique gloss classes...", len(sorted_glosses))
     label_map = GlossLabelMap.from_russian_glosses(sorted_glosses)
     label_map_path = out_dir / "label_map.json"
@@ -164,14 +207,20 @@ def prepare(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Prepare Slovo dataset for SPOTER training")
     parser.add_argument("--output_dir", type=str, default="data", help="Directory to save .pt and label_map.json")
-    parser.add_argument("--max_train_samples", type=int, default=300, help="Train samples to fetch and prepare")
-    parser.add_argument("--max_test_samples", type=int, default=60, help="Test samples to fetch and prepare")
+    parser.add_argument("--dataset_dir", type=str, default=None, help="Local dataset directory saved by download_dataset.py")
+    parser.add_argument("--max_train_samples", type=int, default=None, help="Train samples to prepare")
+    parser.add_argument("--max_test_samples", type=int, default=None, help="Test samples to prepare")
     parser.add_argument("--batch_fetch_size", type=int, default=50, help="Batch size for API fetches")
+    parser.add_argument("--top_k_classes", type=int, default=None, help="Optional limit to top K most frequent classes")
+    parser.add_argument("--core_only", action="store_true", help="Filter to curated RUSSIAN_TO_ARMENIAN_CORE classes")
     args = parser.parse_args()
 
     prepare(
         output_dir=args.output_dir,
+        dataset_dir=args.dataset_dir,
         max_train_samples=args.max_train_samples,
         max_test_samples=args.max_test_samples,
         batch_fetch_size=args.batch_fetch_size,
+        top_k_classes=args.top_k_classes,
+        core_only=args.core_only,
     )

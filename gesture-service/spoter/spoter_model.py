@@ -105,11 +105,16 @@ class SPOTER(nn.Module):
             custom_decoder_layer, self.transformer.decoder.num_layers
         )
 
-    def forward(self, inputs: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self,
+        inputs: torch.Tensor,
+        src_key_padding_mask: torch.Tensor | None = None,
+    ) -> torch.Tensor:
         """
         Forward pass.
         Args:
             inputs: Tensor of shape (T, 108) or (B, T, 108)
+            src_key_padding_mask: Optional boolean mask of shape (B, T) where True indicates padded positions.
         Returns:
             Logits of shape (1, 1, num_classes) if single sequence, or (B, 1, num_classes) if batched.
         """
@@ -127,7 +132,11 @@ class SPOTER(nn.Module):
             b = inputs.size(0)
             h = inputs.transpose(0, 1).float()  # (T, B, hidden_dim)
             query = self.class_query.unsqueeze(1).expand(-1, b, -1)  # (1, B, hidden_dim)
-            h = self.transformer(self.pos + h, query).transpose(0, 1)  # (B, 1, hidden_dim)
+            h = self.transformer(
+                self.pos + h,
+                query,
+                src_key_padding_mask=src_key_padding_mask,
+            ).transpose(0, 1)  # (B, 1, hidden_dim)
             res = self.linear_class(h)  # (B, 1, num_classes)
             return res
         else:

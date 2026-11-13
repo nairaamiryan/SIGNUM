@@ -44,23 +44,26 @@ class LandmarkDataset(Dataset):
 
 
 def collate_single(batch):
-    # For batch_size=1: returns (tensor, label)
+    # For batch_size=1: returns (tensor, label, None)
     tensor, label = batch[0]
-    return tensor, torch.tensor([label], dtype=torch.long)
+    return tensor, torch.tensor([label], dtype=torch.long), None
 
 
 def collate_padded(batch):
-    # For batch_size > 1: pad sequences to max length in batch
+    # For batch_size > 1: pad sequences to max length in batch and build padding mask
     tensors, labels = zip(*batch)
     max_len = max(t.shape[0] for t in tensors)
     hidden_dim = tensors[0].shape[1]
     batch_size = len(tensors)
 
     padded = torch.zeros((batch_size, max_len, hidden_dim), dtype=torch.float32)
+    pad_mask = torch.ones((batch_size, max_len), dtype=torch.bool)
     for i, t in enumerate(tensors):
-        padded[i, :t.shape[0], :] = t
+        seq_len = t.shape[0]
+        padded[i, :seq_len, :] = t
+        pad_mask[i, :seq_len] = False
 
-    return padded, torch.tensor(labels, dtype=torch.long)
+    return padded, torch.tensor(labels, dtype=torch.long), pad_mask
 
 
 def evaluate(model: nn.Module, loader: DataLoader, criterion: nn.Module, device: torch.device):
@@ -70,9 +73,11 @@ def evaluate(model: nn.Module, loader: DataLoader, criterion: nn.Module, device:
     total = 0
 
     with torch.no_grad():
-        for inputs, labels in loader:
+        for inputs, labels, pad_mask in loader:
             inputs = inputs.to(device)
             labels = labels.to(device)
+            if pad_mask is not None:
+                pad_mask = pad_mask.to(device)
 
             if inputs.dim() == 2:
                 # Shape (T, 108)
@@ -83,7 +88,7 @@ def evaluate(model: nn.Module, loader: DataLoader, criterion: nn.Module, device:
                 total += 1
             else:
                 # Batched: (B, T, 108)
-                outputs = model(inputs)  # (B, 1, num_classes)
+                outputs = model(inputs, src_key_padding_mask=pad_mask)  # (B, 1, num_classes)
                 logits = outputs.squeeze(1)  # (B, num_classes)
                 loss = criterion(logits, labels)
                 pred = torch.argmax(logits, dim=-1)
@@ -106,12 +111,16 @@ def train(args):
         torch.cuda.manual_seed_all(args.seed)
 
     # Determine device
-    device = torch.device("cuda" if torch.cuda.is_available() and not args.force_cpu else "cpu")
-    if device.type == "cuda":
+    if torch.cuda.is_available() and not args.force_cpu:
+        device = torch.device("cuda")
         gpu_name = torch.cuda.get_device_name(0)
         gpu_mem = torch.cuda.get_device_properties(0).total_memory / (1024 ** 2)
-        logger.info("Using GPU: %s (%.0f MB VRAM)", gpu_name, gpu_mem)
+        logger.info("Using CUDA GPU: %s (%.0f MB VRAM)", gpu_name, gpu_mem)
+    elif torch.backends.mps.is_available() and not args.force_cpu:
+        device = torch.device("mps")
+        logger.info("Using Apple Silicon MPS GPU.")
     else:
+        device = torch.device("cpu")
         logger.info("Using CPU device.")
 
     # Load Label Map
@@ -187,9 +196,11 @@ def train(args):
         train_correct = 0
         train_total = 0
 
-        for inputs, labels in train_loader:
+        for inputs, labels, pad_mask in train_loader:
             inputs = inputs.to(device)
             labels = labels.to(device)
+            if pad_mask is not None:
+                pad_mask = pad_mask.to(device)
 
             optimizer.zero_grad()
 
@@ -200,7 +211,7 @@ def train(args):
                 train_correct += int((pred == labels).sum().item())
                 train_total += 1
             else:
-                outputs = model(inputs)  # (B, 1, num_classes)
+                outputs = model(inputs, src_key_padding_mask=pad_mask)  # (B, 1, num_classes)
                 logits = outputs.squeeze(1)
                 loss = criterion(logits, labels)
                 pred = torch.argmax(logits, dim=-1)
