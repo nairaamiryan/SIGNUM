@@ -20,9 +20,17 @@ MOTION_THRESHOLD = 0.02
 # How many consecutive "idle" (low-motion) frames end an active segment.
 IDLE_FRAMES_TO_END_SEGMENT = 10
 
-# --- Classification (placeholder) ---
-# Confidence value returned by the mock classifier.
+# --- Classification & SPOTER ---
+# Confidence value returned by the mock classifier fallback.
 MOCK_CONFIDENCE = 0.75
+
+# SPOTER Model defaults
+DEFAULT_SPOTER_MODEL_NAME = "spoter_arsl"
+DEFAULT_SPOTER_MODEL_VERSION = "v1"
+DEFAULT_SPOTER_CHECKPOINT_PATH = "models/spoter_arsl_v1.pth"
+DEFAULT_CLASSIFICATION_CONFIDENCE_THRESHOLD = 0.3
+SPOTER_HIDDEN_DIM = 108
+SPOTER_NUM_LANDMARKS = 54
 
 # --- WebSocket / session ---
 # How long (seconds) a session may remain idle before the server treats it
@@ -33,3 +41,4 @@ PRE_ROLL_FRAMES = 3
 COARTICULATION_MIN_SEGMENT_FRAMES = 8
 COARTICULATION_DIP_RATIO = 0.5
 SEGMENT_MAX_FRAMES = 90
+

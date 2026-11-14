@@ -145,6 +145,20 @@ async def recognition_socket(websocket: WebSocket):
                     if seg_result is None:
                         await websocket.send_text(json.dumps({"type": "unrecognized"}))
                     else:
+                        logger.info(
+                            "Gesture classified: gloss=%s confidence=%.2f model=%s version=%s",
+                            seg_result.gloss,
+                            seg_result.confidence,
+                            seg_result.model_name,
+                            seg_result.model_version,
+                            extra={
+                                "session_id": session_id,
+                                "model_name": seg_result.model_name,
+                                "model_version": seg_result.model_version,
+                                "confidence": seg_result.confidence,
+                                "audit": True,
+                            },
+                        )
                         await websocket.send_text(
                             json.dumps(
                                 {
@@ -172,6 +186,20 @@ async def recognition_socket(websocket: WebSocket):
                 if result is None:
                     await websocket.send_text(json.dumps({"type": "unrecognized"}))
                 else:
+                    logger.info(
+                        "Finalize classified: gloss=%s confidence=%.2f model=%s version=%s",
+                        result.gloss,
+                        result.confidence,
+                        result.model_name,
+                        result.model_version,
+                        extra={
+                            "session_id": session_id,
+                            "model_name": result.model_name,
+                            "model_version": result.model_version,
+                            "confidence": result.confidence,
+                            "audit": True,
+                        },
+                    )
                     await websocket.send_text(
                         json.dumps(
                             {
