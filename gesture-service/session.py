@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 from landmark_buffer import LandmarkBuffer
+from gloss_sequence import GlossSequenceProcessor
 from spotting import HeuristicGestureSpotter
 
 
@@ -28,6 +29,11 @@ class Session:
     buffer: LandmarkBuffer = field(default_factory=LandmarkBuffer)
     spotter: HeuristicGestureSpotter = field(default_factory=HeuristicGestureSpotter)
     last_activity: float = field(default_factory=time.monotonic)
+    gloss_sequence: GlossSequenceProcessor = field(init=False)
+
+    def __post_init__(self) -> None:
+        # Gloss sequence processor bound to this session (KAN-18).
+        self.gloss_sequence = GlossSequenceProcessor(self.session_id)
 
     def touch(self) -> None:
         """Marks the session as recently active."""
@@ -41,6 +47,7 @@ class Session:
         finalize/classification cycle completes."""
         self.buffer.clear()
         self.spotter.reset()
+        self.gloss_sequence.discard()
         self.state = RecognitionState.LISTENING
 
 
