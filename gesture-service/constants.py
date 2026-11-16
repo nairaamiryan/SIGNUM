@@ -42,3 +42,14 @@ COARTICULATION_MIN_SEGMENT_FRAMES = 8
 COARTICULATION_DIP_RATIO = 0.5
 SEGMENT_MAX_FRAMES = 90
 
+# --- Gloss sequence processing (KAN-18) ---
+# Prediction below this confidence is dropped and recorded as a gap.
+GLOSS_MIN_CONFIDENCE = 0.3
+# Prediction below this confidence is kept but marked "uncertain".
+GLOSS_ACCEPT_CONFIDENCE = 0.5
+# The same gloss predicted again within this many ms is merged (repeat).
+GLOSS_REPEAT_WINDOW_MS = 1000
+# No gesture for this many ms ends the utterance (sentence).
+GLOSS_UTTERANCE_PAUSE_MS = 2000
+# An utterance is closed when it reaches this many glosses.
+GLOSS_MAX_SEQUENCE_LENGTH = 20

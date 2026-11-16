@@ -22,6 +22,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from classification import classify_segment
+from gloss_sequence import BOUNDARY_FINALIZE, GlossSequence
 from landmark_buffer import LandmarkFrame
 from session import RecognitionState, SessionRegistry
 
@@ -67,6 +68,10 @@ async def health_check():
 
 async def send_state(websocket: WebSocket, state: RecognitionState) -> None:
     await websocket.send_text(json.dumps({"type": "state", "state": state.value}))
+
+
+async def send_gloss_sequence(websocket: WebSocket, sequence: GlossSequence) -> None:
+    await websocket.send_text(json.dumps(sequence.to_message()))
 
 
 def parse_landmark_frame(message: dict) -> LandmarkFrame:
@@ -142,6 +147,11 @@ async def recognition_socket(websocket: WebSocket):
                 # finished gesture segments, which go to classification.
                 for segment in session.spotter.process(frame):
                     seg_result = classify_segment(segment.frames)
+                    closed = session.gloss_sequence.add_prediction(
+                        seg_result,
+                        segment.frames[0].timestamp,
+                        segment.frames[-1].timestamp,
+                    )
                     if seg_result is None:
                         await websocket.send_text(json.dumps({"type": "unrecognized"}))
                     else:
@@ -169,6 +179,15 @@ async def recognition_socket(websocket: WebSocket):
                                 }
                             )
                         )
+                    if closed is not None:
+                        await send_gloss_sequence(websocket, closed)
+
+                # Utterance boundary: a pause with no gesture in progress.
+                pause_closed = session.gloss_sequence.tick(
+                    frame.timestamp, busy=session.spotter.is_active
+                )
+                if pause_closed is not None:
+                    await send_gloss_sequence(websocket, pause_closed)
 
             elif msg_type == "finalize":
                 if session.buffer.is_empty:
@@ -182,6 +201,9 @@ async def recognition_socket(websocket: WebSocket):
                 open_segment = session.spotter.flush()
                 final_frames = open_segment.frames if open_segment else session.buffer.frames()
                 result = classify_segment(final_frames)
+                full_sequence = session.gloss_sequence.add_prediction(
+                    result, final_frames[0].timestamp, final_frames[-1].timestamp
+                )
 
                 if result is None:
                     await websocket.send_text(json.dumps({"type": "unrecognized"}))
@@ -210,6 +232,11 @@ async def recognition_socket(websocket: WebSocket):
                             }
                         )
                     )
+
+                # Finalize ends the utterance: send the structured gloss sequence.
+                for finished in (full_sequence, session.gloss_sequence.close(BOUNDARY_FINALIZE)):
+                    if finished is not None:
+                        await send_gloss_sequence(websocket, finished)
 
                 session.reset()
                 await send_state(websocket, session.state)
