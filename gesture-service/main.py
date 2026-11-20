@@ -12,6 +12,7 @@ Implements the full recognition pipeline described in KAN-15:
 See docs/websocket-contract.md for the full message protocol.
 """
 
+import asyncio
 import json
 import logging
 import os
@@ -23,6 +24,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from classification import classify_segment
 from gloss_sequence import BOUNDARY_FINALIZE, GlossSequence
+from nlp import NLPService, SentenceStatus
 from landmark_buffer import LandmarkFrame
 from session import RecognitionState, SessionRegistry
 
@@ -53,6 +55,8 @@ app.add_middleware(
 )
 
 registry = SessionRegistry()
+nlp_service = NLPService.from_env()  # Armenian sentence generation (KAN-19)
+_background_tasks: set = set()  # keeps running sentence tasks referenced
 
 
 @app.get("/")
@@ -72,6 +76,31 @@ async def send_state(websocket: WebSocket, state: RecognitionState) -> None:
 
 async def send_gloss_sequence(websocket: WebSocket, sequence: GlossSequence) -> None:
     await websocket.send_text(json.dumps(sequence.to_message()))
+
+
+async def send_sentence(websocket: WebSocket, session, sequence: GlossSequence) -> None:
+    """Generate the Armenian sentence of a finished utterance (KAN-19) and send it."""
+    try:
+        result = await nlp_service.generate(sequence, list(session.sentence_context))
+        if result.status != SentenceStatus.FALLBACK:
+            session.remember_sentence(result.text)
+        await websocket.send_text(json.dumps(result.to_message()))
+    except Exception:
+        # For example the socket closed while the model was answering.
+        logger.warning(
+            "Could not deliver the sentence of utterance %s",
+            sequence.utterance_id,
+            exc_info=True,
+            extra={"session_id": sequence.session_id},
+        )
+
+
+async def publish_gloss_sequence(websocket: WebSocket, session, sequence: GlossSequence) -> None:
+    """Send the gloss sequence now; the sentence follows when the model answers."""
+    await send_gloss_sequence(websocket, sequence)
+    task = asyncio.create_task(send_sentence(websocket, session, sequence))
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
 
 
 def parse_landmark_frame(message: dict) -> LandmarkFrame:
@@ -180,14 +209,14 @@ async def recognition_socket(websocket: WebSocket):
                             )
                         )
                     if closed is not None:
-                        await send_gloss_sequence(websocket, closed)
+                        await publish_gloss_sequence(websocket, session, closed)
 
                 # Utterance boundary: a pause with no gesture in progress.
                 pause_closed = session.gloss_sequence.tick(
                     frame.timestamp, busy=session.spotter.is_active
                 )
                 if pause_closed is not None:
-                    await send_gloss_sequence(websocket, pause_closed)
+                    await publish_gloss_sequence(websocket, session, pause_closed)
 
             elif msg_type == "finalize":
                 if session.buffer.is_empty:
@@ -236,7 +265,7 @@ async def recognition_socket(websocket: WebSocket):
                 # Finalize ends the utterance: send the structured gloss sequence.
                 for finished in (full_sequence, session.gloss_sequence.close(BOUNDARY_FINALIZE)):
                     if finished is not None:
-                        await send_gloss_sequence(websocket, finished)
+                        await publish_gloss_sequence(websocket, session, finished)
 
                 session.reset()
                 await send_state(websocket, session.state)

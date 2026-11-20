@@ -24,6 +24,11 @@ The gesture service forwards its logs to the web app (`POST /api/internal/logs`,
 3. `classification.py` - runs the SPOTER model on a spotted segment and returns the predicted
    Armenian gloss with a softmax confidence score.
 4. `session.py` - per-connection state; `main.py` - WebSocket endpoint.
+5. `gloss_sequence.py` - collects the predicted glosses of an utterance into an ordered
+   gloss sequence (confidence filtering, repeat merging, gaps, sentence boundaries).
+6. `nlp/` - NLP layer: an LLM (Gemini by default, behind the `LLMProvider` interface) turns the
+   gloss sequence into an Armenian sentence and returns it with a status (`ok`, `partial`,
+   `fallback`). See `docs/websocket-contract.md` for the `gloss_sequence` and `sentence` messages.
 
 ### Gesture classification model
 
@@ -115,6 +120,9 @@ The service listens on `ws://localhost:8000/ws`. Environment variables are docum
 | `SPOTER_MODEL_NAME`, `SPOTER_MODEL_VERSION` | Model name and version |
 | `SPOTER_CHECKPOINT_PATH` | Path to the trained checkpoint (`models/spoter_arsl_v1.pth`) |
 | `SPOTER_CONFIDENCE_THRESHOLD` | Minimum confidence for a prediction to be accepted |
+| `LLM_PROVIDER` | NLP layer provider: `gemini` (default) or `none` to disable |
+| `GEMINI_API_KEY` | Gemini API key (secret; never commit it) |
+| `LLM_MODEL`, `LLM_TIMEOUT_SECONDS` | Gemini model id and the timeout of one call |
 
 ## Tests
 
@@ -150,7 +158,8 @@ Deploy the gesture service first, because the web app needs its public URL.
 4. Start command: `uvicorn main:app --host 0.0.0.0 --port $PORT`
 5. Environment variables (Environment tab): every variable from `gesture-service/.env.example`
    (`BACKEND_LOG_URL`, `SERVICE_API_KEY`, `MAX_MESSAGE_LEN`, `SPOTER_MODEL_NAME`, `SPOTER_MODEL_VERSION`,
-   `SPOTER_CHECKPOINT_PATH`, `SPOTER_CONFIDENCE_THRESHOLD`).
+   `SPOTER_CHECKPOINT_PATH`, `SPOTER_CONFIDENCE_THRESHOLD`, `LLM_PROVIDER`, `GEMINI_API_KEY`,
+   `LLM_MODEL`, `LLM_TIMEOUT_SECONDS`).
    `BACKEND_LOG_URL` must point to the deployed web app (`https://<vercel-domain>/api/internal/logs`) and
    `SERVICE_API_KEY` must equal the value set in Vercel.
    The checkpoint `gesture-service/models/spoter_arsl_v1.pth` must be in the repository (it is
