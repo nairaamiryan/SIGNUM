@@ -29,6 +29,8 @@ class Session:
     buffer: LandmarkBuffer = field(default_factory=LandmarkBuffer)
     spotter: HeuristicGestureSpotter = field(default_factory=HeuristicGestureSpotter)
     last_activity: float = field(default_factory=time.monotonic)
+    # Earlier sentences of this session; context for the NLP layer (KAN-19).
+    sentence_context: list[str] = field(default_factory=list)
     gloss_sequence: GlossSequenceProcessor = field(init=False)
 
     def __post_init__(self) -> None:
@@ -38,6 +40,11 @@ class Session:
     def touch(self) -> None:
         """Marks the session as recently active."""
         self.last_activity = time.monotonic()
+
+    def remember_sentence(self, sentence: str, limit: int = 5) -> None:
+        """Keeps the last few generated sentences as context for the next one."""
+        self.sentence_context.append(sentence)
+        del self.sentence_context[:-limit]
 
     def is_stale(self, timeout_seconds: float) -> bool:
         return (time.monotonic() - self.last_activity) > timeout_seconds

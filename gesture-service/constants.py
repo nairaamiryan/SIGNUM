@@ -53,3 +53,18 @@ GLOSS_REPEAT_WINDOW_MS = 1000
 GLOSS_UTTERANCE_PAUSE_MS = 2000
 # An utterance is closed when it reaches this many glosses.
 GLOSS_MAX_SEQUENCE_LENGTH = 20
+
+# --- NLP layer / LLM (KAN-19) ---
+# Provider selected by the LLM_PROVIDER environment variable ("gemini" or "none").
+DEFAULT_LLM_PROVIDER = "gemini"
+DEFAULT_LLM_MODEL = "gemini-3.5-flash-lite"
+# Seconds to wait for the LLM answer before falling back to plain glosses.
+DEFAULT_LLM_TIMEOUT_SECONDS = 10.0
+# Extra attempts on rate limit (429), server errors and timeouts.
+LLM_MAX_RETRIES = 1
+# Low temperature: translation, not creative writing.
+LLM_TEMPERATURE = 0.2
+# How many earlier sentences of the session are given to the model as context.
+NLP_CONTEXT_SENTENCES = 3
+# A sentence longer than this many words per gloss (+4) is rejected as invented content.
+NLP_MAX_WORDS_PER_GLOSS = 3

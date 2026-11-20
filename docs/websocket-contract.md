@@ -180,6 +180,80 @@ Configured in `gesture-service/constants.py`:
 - Sequences are bound to the session of the connection that produced them;
   an unfinished utterance is dropped when the connection closes.
 
+## Sentence Generation (KAN-19)
+
+The NLP layer turns the gloss sequence of an utterance (see the section
+above) into one grammatically correct Armenian sentence using a language
+model. It lives in `gesture-service/nlp/` and is separated from the gesture
+recognition pipeline: it only reads the finished `gloss_sequence`, and the
+language model sits behind the `LLMProvider` interface, so the provider
+(Gemini, Claude, GPT, ...) can be replaced without touching classification.
+
+### `sentence`
+Sent after the `gloss_sequence` of the same utterance. It is generated in the
+background (usually 1-3 seconds), so it arrives later than the
+`gloss_sequence`; match the two by `utteranceId`.
+```json
+{
+  "type": "sentence",
+  "sessionId": "a1b2c3d4-...",
+  "utteranceId": 1,
+  "text": "Ես ջուր եմ ուզում։",
+  "status": "ok",
+  "glossText": "ԵՍ ՋՈՒՐ ՈՒԶԵԼ",
+  "warnings": [],
+  "provider": "gemini",
+  "model": "gemini-3.5-flash-lite",
+  "latencyMs": 940
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `text` | The Armenian sentence. For `status: "fallback"` it is the plain gloss text instead. |
+| `status` | `ok`, `partial` or `fallback` (see below). |
+| `glossText` | The glosses the sentence was built from. |
+| `warnings` | Reasons the result is not fully reliable (see below); empty for `ok`. |
+| `provider`, `model` | The language model that produced the text (`null` when none was used). |
+| `latencyMs` | Time spent generating the sentence. |
+
+### Status
+
+| Status | Meaning |
+|---|---|
+| `ok` | A sentence was generated from a complete, confident gloss sequence. |
+| `partial` | A sentence was generated, but the input was incomplete or ambiguous, so it may not say everything the signer meant. The frontend should show it as tentative. |
+| `fallback` | No usable sentence. `text` holds the plain glosses and `warnings` says why. |
+
+### Warnings
+
+| Warning | Meaning |
+|---|---|
+| `missing_glosses` | The gloss sequence had gaps (unrecognized signs). The model does not guess them. |
+| `uncertain_glosses` | Some glosses had low confidence. |
+| `omitted_glosses` | The model left out glosses that did not fit. |
+| `incomplete` | The model reports that the sentence does not express everything. |
+| `llm_not_configured` | No language model is configured (`LLM_PROVIDER` / `GEMINI_API_KEY`). |
+| `llm_timeout`, `llm_network`, `llm_rate_limited`, `llm_http_error`, `llm_blocked`, `llm_bad_response` | The language model call failed. |
+| `invalid_output` | The answer was rejected: not valid JSON, not Armenian, contains digits that are not in the glosses, or is much longer than the glosses justify. |
+
+### Rules
+
+- The model may add only what Armenian grammar requires (function words, verb forms, case endings, punctuation). It must not add names, numbers, places, times, negation or any other information that is not in the glosses.
+- A missing sign is never guessed. Low-confidence glosses are used only if they fit; otherwise they are left out and reported.
+- The last 3 sentences of the session are given to the model as context (to resolve who is speaking or the tense) and are not copied.
+- The call has a timeout (`LLM_TIMEOUT_SECONDS`, default 10) and one retry on rate limit or server errors. On any failure the `fallback` status is returned; the recognition itself is never blocked.
+- One call is made per utterance, never per frame.
+
+Configuration (environment variables, see `gesture-service/.env.example`):
+
+| Variable | Purpose | Default |
+|---|---|---|
+| `LLM_PROVIDER` | `gemini`, or `none` to disable the NLP layer | `gemini` |
+| `GEMINI_API_KEY` | API key (secret; set it in `.env` and on Render, never commit it) | - |
+| `LLM_MODEL` | Gemini model id | `gemini-3.5-flash-lite` |
+| `LLM_TIMEOUT_SECONDS` | Timeout of one LLM call | `10` |
+
 ## Notes for Backend Implementation
 
 - A mock server implementing this contract is available at
