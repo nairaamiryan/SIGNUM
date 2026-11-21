@@ -26,6 +26,8 @@ export function useRecognitionSocket({
     onCaption,
     onUnrecognized,
     onServerState,
+    onGlossSequence,
+    onSentence,
     onError,
 }: UseRecognitionSocketOptions) {
     const { t } = useTranslation();
@@ -144,6 +146,12 @@ export function useRecognitionSocket({
                         case "state":
                             onServerState?.(message.state);
                             break;
+                        case "gloss_sequence":
+                            onGlossSequence?.(message);
+                            break;
+                        case "sentence":
+                            onSentence?.(message);
+                            break;
                         case "error":
                             onError?.(message.message);
                             break;
@@ -156,7 +164,7 @@ export function useRecognitionSocket({
                 }
             };
         },
-        [onCaption, onUnrecognized, onServerState, onError, t]
+        [onCaption, onUnrecognized, onServerState, onGlossSequence, onSentence, onError, t]
     );
 
     const connect = useCallback(() => {

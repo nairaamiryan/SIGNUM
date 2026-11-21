@@ -1,49 +1,47 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import CameraFeed from "@/components/CameraFeed";
 import CaptionDisplay from "@/components/CaptionDisplay";
+import { useCaptionFeed } from "@/lib/useCaptionFeed";
 import { useRecognitionSocket } from "@/lib/useRecognitionSocket";
-import { ConnectionState } from "@/lib/constants";
+import { ConnectionState, ServerState } from "@/lib/constants";
 import type { LandmarkFrame } from "@/lib/useHolisticLandmarks";
 
 export default function Home() {
   const { t } = useTranslation();
 
-  const [caption, setCaption] = useState("");
-  const [gloss, setGloss] = useState<string[]>([]);
-  const [confidence, setConfidence] = useState<number | null>(null);
-  const [unrecognized, setUnrecognized] = useState(false);
-  const [connectionError, setConnectionError] = useState<string | null>(null);
+  // Partial results, completed sentences, confidence, state and errors,
+  // driven by the events of the recognition and NLP pipeline.
+  const feed = useCaptionFeed();
 
   const { connect, disconnect, send, connectionState } = useRecognitionSocket({
-    onCaption: (text, glossSequence, conf) => {
-      setCaption(text);
-      setGloss(glossSequence);
-      setConfidence(conf);
-      setUnrecognized(false);
-    },
-    onUnrecognized: () => {
-      setUnrecognized(true);
-    },
-    onError: (message) => {
-      setConnectionError(message);
-    },
+    onCaption: feed.onCaption,
+    onUnrecognized: feed.onUnrecognized,
+    onServerState: feed.onServerState,
+    onGlossSequence: feed.onGlossSequence,
+    onSentence: feed.onSentence,
+    onError: feed.onError,
   });
 
+  // Without an open connection the server cannot be listening.
+  const status =
+    connectionState === ConnectionState.OPEN || feed.status === ServerState.ERROR
+      ? feed.status
+      : ServerState.IDLE;
+
+  const { reset } = feed;
+
   const handleStreamReady = useCallback(() => {
-    setConnectionError(null);
+    reset();
     connect();
-  }, [connect]);
+  }, [reset, connect]);
 
   const handleStreamStopped = useCallback(() => {
     disconnect();
-    setCaption("");
-    setGloss([]);
-    setConfidence(null);
-    setUnrecognized(false);
-  }, [disconnect]);
+    reset();
+  }, [disconnect, reset]);
 
   const handleLandmarksDetected = useCallback(
     (frame: LandmarkFrame) => {
@@ -59,37 +57,38 @@ export default function Home() {
     [send]
   );
 
+  const { onFinalizeRequested } = feed;
+
   const handleFinalize = useCallback(() => {
+    onFinalizeRequested();
     send({ type: "finalize" });
-  }, [send]);
+  }, [onFinalizeRequested, send]);
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center p-8 gap-6">
       <h1 className="text-2xl font-bold">{t("app.title")}</h1>
 
       <CameraFeed
+        status={status}
         onStreamReady={handleStreamReady}
         onStreamStopped={handleStreamStopped}
         onLandmarksDetected={handleLandmarksDetected}
         onFinalize={handleFinalize}
       />
 
-      <CaptionDisplay
-        caption={caption}
-        gloss={gloss}
-        confidence={confidence}
-        unrecognized={unrecognized}
-      />
-
       {connectionState === ConnectionState.RECONNECTING && (
-        <p className="text-amber-500 text-sm">{t("connection.reconnecting")}</p>
-      )}
-
-      {connectionError && (
-        <p className="text-red-500 text-sm max-w-2xl text-center">
-          {connectionError}
+        <p role="status" className="text-amber-500 text-sm">
+          {t("connection.reconnecting")}
         </p>
       )}
+
+      <CaptionDisplay
+        partials={feed.partials}
+        captions={feed.captions}
+        generating={feed.generating}
+        unrecognized={feed.unrecognized}
+        error={feed.error}
+      />
     </main>
   );
 }
