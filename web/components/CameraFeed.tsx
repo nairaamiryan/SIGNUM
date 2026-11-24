@@ -3,6 +3,7 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useHolisticLandmarks, type LandmarkFrame } from "@/lib/useHolisticLandmarks";
+import type { ServerState } from "@/lib/types";
 
 export type RecognitionState = "idle" | "listening" | "processing" | "error";
 
@@ -13,15 +14,28 @@ interface CameraFeedProps {
   onLandmarksDetected?: (frame: LandmarkFrame) => void;
   /** Called when the user explicitly finalizes the current sentence. */
   onFinalize?: () => void;
+  /**
+   * Recognition state reported by the page from the server events. While the
+   * camera is on it decides the badge and whether Finalize is enabled.
+   */
+  status?: ServerState;
 }
 
 const DETECTION_INTERVAL_MS = 100; // ~10 fps
+
+const STATE_BADGE_CLASS: Record<RecognitionState, string> = {
+  idle: "bg-black/60",
+  listening: "bg-emerald-600/80",
+  processing: "bg-amber-500/90",
+  error: "bg-red-600/90",
+};
 
 export default function CameraFeed({
   onStreamReady,
   onStreamStopped,
   onLandmarksDetected,
   onFinalize,
+  status,
 }: CameraFeedProps) {
   const { t } = useTranslation();
   const { initialize, detectFrame, close, loadError } = useHolisticLandmarks();
@@ -102,11 +116,14 @@ export default function CameraFeed({
     onStreamStopped?.();
   }, [onStreamStopped, stopDetection]);
 
+  // While the camera is on, the recognition state comes from the server events.
+  const displayState: RecognitionState =
+    state === "idle" || state === "error" ? state : (status ?? state);
+
   const finalizeRecognition = useCallback(() => {
-    if (state !== "listening") return;
-    setState("processing");
+    if (displayState !== "listening") return;
     onFinalize?.();
-  }, [state, onFinalize]);
+  }, [displayState, onFinalize]);
 
   // Clean up on unmount.
   useEffect(() => {
@@ -134,8 +151,12 @@ export default function CameraFeed({
           playsInline
         />
 
-        <div className="absolute top-2 left-2 px-3 py-1 rounded-full text-sm font-medium bg-black/60 text-white">
-          {modelLoading ? t("state.processing") : stateLabel[state]}
+        <div
+          role="status"
+          aria-live="polite"
+          className={`absolute top-2 left-2 px-3 py-1 rounded-full text-sm font-medium text-white ${STATE_BADGE_CLASS[modelLoading ? "processing" : displayState]}`}
+        >
+          {modelLoading ? t("state.processing") : stateLabel[displayState]}
         </div>
       </div>
 
@@ -156,7 +177,7 @@ export default function CameraFeed({
           <>
             <button
               onClick={finalizeRecognition}
-              disabled={state !== "listening"}
+              disabled={displayState !== "listening"}
               className="px-4 py-2 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {t("controls.finalize")}

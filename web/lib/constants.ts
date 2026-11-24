@@ -26,3 +26,21 @@ export const ERROR_MESSAGES = {
   NOT_FOUND: "Not found",
   SESSION_NOT_FOUND: "Session not found",
 } as const;
+
+// --- Real-time captioning (KAN-23) ---
+export const SentenceStatus = {
+    OK: "ok",
+    PARTIAL: "partial",
+    FALLBACK: "fallback",
+} as const;
+
+export const GlossStatus = {
+    ACCEPTED: "accepted",
+    UNCERTAIN: "uncertain",
+} as const;
+
+export const CAPTION_HISTORY_LIMIT = 5; // completed captions kept on screen
+export const MAX_PARTIAL_GLOSSES = 30; // live signs kept for one utterance
+export const UNRECOGNIZED_NOTICE_MS = 3000; // how long "not recognized" stays
+export const PENDING_TIMEOUT_MS = 15000; // stop waiting for a sentence after this
+export const UNCERTAIN_CONFIDENCE = 0.5; // below this a sign is shown as uncertain
