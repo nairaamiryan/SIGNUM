@@ -39,7 +39,7 @@ export function useRecognitionSocket({
     const intentionalCloseRef = useRef(false);
 
     const [connectionState, setConnectionState] = useState<ConnectionStateType>(
-        ConnectionState.IDLE
+        ConnectionState.IDLE,
     );
 
     const clearReconnectTimeout = useCallback(() => {
@@ -68,11 +68,17 @@ export function useRecognitionSocket({
 
             // Ensure /ws endpoint path is appended if missing
             try {
-                const httpUrl = url.replace(/^wss:\/\//i, "https://").replace(/^ws:\/\//i, "http://");
+                const httpUrl = url
+                    .replace(/^wss:\/\//i, "https://")
+                    .replace(/^ws:\/\//i, "http://");
                 const parsed = new URL(httpUrl);
                 if (!parsed.pathname || parsed.pathname === "/") {
                     parsed.pathname = "/ws";
-                    url = (url.startsWith("wss://") ? "wss://" : "ws://") + parsed.host + parsed.pathname + parsed.search;
+                    url =
+                        (url.startsWith("wss://") ? "wss://" : "ws://") +
+                        parsed.host +
+                        parsed.pathname +
+                        parsed.search;
                 }
             } catch {
                 if (!url.endsWith("/ws")) {
@@ -82,26 +88,30 @@ export function useRecognitionSocket({
 
             console.log(`[RecognitionSocket] Connecting to ${url} (reconnect=${isReconnect})...`);
             setConnectionState(
-                isReconnect ? ConnectionState.RECONNECTING : ConnectionState.CONNECTING
+                isReconnect ? ConnectionState.RECONNECTING : ConnectionState.CONNECTING,
             );
 
             const socket = new WebSocket(url);
             socketRef.current = socket;
 
             socket.onopen = () => {
-                console.log(`[RecognitionSocket] WebSocket connected successfully to ${url}. Session: ${sessionIdRef.current ?? "none"}`);
+                console.log(
+                    `[RecognitionSocket] WebSocket connected successfully to ${url}. Session: ${sessionIdRef.current ?? "none"}`,
+                );
                 reconnectAttemptsRef.current = 0;
                 setConnectionState(ConnectionState.OPEN);
 
                 if (sessionIdRef.current) {
                     socket.send(
-                        JSON.stringify({ type: "connect", sessionId: sessionIdRef.current })
+                        JSON.stringify({ type: "connect", sessionId: sessionIdRef.current }),
                     );
                 }
             };
 
             socket.onclose = (event) => {
-                console.warn(`[RecognitionSocket] WebSocket disconnected (code: ${event.code}, reason: ${event.reason || "none"}, clean: ${event.wasClean})`);
+                console.warn(
+                    `[RecognitionSocket] WebSocket disconnected (code: ${event.code}, reason: ${event.reason || "none"}, clean: ${event.wasClean})`,
+                );
                 if (intentionalCloseRef.current) {
                     setConnectionState(ConnectionState.CLOSED);
                     return;
@@ -112,16 +122,19 @@ export function useRecognitionSocket({
                     const attempt = reconnectAttemptsRef.current + 1;
                     reconnectAttemptsRef.current = attempt;
                     const delay =
-                        RECONNECT_BASE_DELAY_MS *
-                        RECONNECT_BACKOFF_MULTIPLIER ** (attempt - 1);
+                        RECONNECT_BASE_DELAY_MS * RECONNECT_BACKOFF_MULTIPLIER ** (attempt - 1);
 
-                    console.log(`[RecognitionSocket] Reconnecting attempt ${attempt}/${MAX_RECONNECT_ATTEMPTS} in ${delay}ms...`);
+                    console.log(
+                        `[RecognitionSocket] Reconnecting attempt ${attempt}/${MAX_RECONNECT_ATTEMPTS} in ${delay}ms...`,
+                    );
                     setConnectionState(ConnectionState.RECONNECTING);
                     reconnectTimeoutRef.current = setTimeout(() => {
                         openSocket(true);
                     }, delay);
                 } else {
-                    console.error("[RecognitionSocket] Max reconnect attempts reached. Connection failed.");
+                    console.error(
+                        "[RecognitionSocket] Max reconnect attempts reached. Connection failed.",
+                    );
                     setConnectionState(ConnectionState.FAILED);
                     onError?.(t("connection.error"));
                 }
@@ -159,12 +172,12 @@ export function useRecognitionSocket({
                 } catch {
                     console.warn(
                         "Received malformed message from Gesture Recognition Service:",
-                        event.data
+                        event.data,
                     );
                 }
             };
         },
-        [onCaption, onUnrecognized, onServerState, onGlossSequence, onSentence, onError, t]
+        [onCaption, onUnrecognized, onServerState, onGlossSequence, onSentence, onError, t],
     );
 
     const connect = useCallback(() => {
@@ -186,9 +199,7 @@ export function useRecognitionSocket({
 
     const send = useCallback((message: DistributiveOmit<ClientMessage, "sessionId">) => {
         if (socketRef.current?.readyState === WebSocket.OPEN && sessionIdRef.current) {
-            socketRef.current.send(
-                JSON.stringify({ ...message, sessionId: sessionIdRef.current })
-            );
+            socketRef.current.send(JSON.stringify({ ...message, sessionId: sessionIdRef.current }));
         }
     }, []);
 

@@ -128,7 +128,9 @@ class GeminiProvider:
                 raise error from exc
 
             if status in _RETRY_STATUSES and attempt < attempts:
-                logger.warning("Gemini returned HTTP %d, retrying (%d/%d)", status, attempt, attempts)
+                logger.warning(
+                    "Gemini returned HTTP %d, retrying (%d/%d)", status, attempt, attempts
+                )
                 time.sleep(self._retry_delay)
                 continue
             if status == 429:
@@ -154,9 +156,13 @@ class GeminiProvider:
         if not candidates:
             raise LLMError("bad_response", "no candidates")
         parts = (candidates[0].get("content") or {}).get("parts") or []
-        texts = [p["text"] for p in parts if isinstance(p.get("text"), str) and not p.get("thought")]
+        texts = [
+            p["text"] for p in parts if isinstance(p.get("text"), str) and not p.get("thought")
+        ]
         if not texts:
-            raise LLMError("bad_response", f"empty answer (finishReason={candidates[0].get('finishReason')})")
+            raise LLMError(
+                "bad_response", f"empty answer (finishReason={candidates[0].get('finishReason')})"
+            )
         return "".join(texts)
 
 

@@ -5,8 +5,8 @@ Dataset: https://huggingface.co/datasets/karinversan/slovo-full-landmarks
 
 import argparse
 import logging
-import os
 from pathlib import Path
+
 from datasets import load_dataset
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -44,8 +44,12 @@ def download(output_dir: str = "data/slovo-landmarks", max_samples: int | None =
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Download Slovo MediaPipe Landmarks dataset")
-    parser.add_argument("--output_dir", type=str, default="data/slovo-landmarks", help="Path to save dataset")
-    parser.add_argument("--max_samples", type=int, default=None, help="Optional maximum samples to download/save")
+    parser.add_argument(
+        "--output_dir", type=str, default="data/slovo-landmarks", help="Path to save dataset"
+    )
+    parser.add_argument(
+        "--max_samples", type=int, default=None, help="Optional maximum samples to download/save"
+    )
     args = parser.parse_args()
 
     download(output_dir=args.output_dir, max_samples=args.max_samples)

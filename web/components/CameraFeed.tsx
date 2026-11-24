@@ -8,189 +8,182 @@ import type { ServerState } from "@/lib/types";
 export type RecognitionState = "idle" | "listening" | "processing" | "error";
 
 interface CameraFeedProps {
-  onStreamReady?: (stream: MediaStream) => void;
-  onStreamStopped?: () => void;
-  /** Called with each detected landmark frame while listening. */
-  onLandmarksDetected?: (frame: LandmarkFrame) => void;
-  /** Called when the user explicitly finalizes the current sentence. */
-  onFinalize?: () => void;
-  /**
-   * Recognition state reported by the page from the server events. While the
-   * camera is on it decides the badge and whether Finalize is enabled.
-   */
-  status?: ServerState;
+    onStreamReady?: (stream: MediaStream) => void;
+    onStreamStopped?: () => void;
+    /** Called with each detected landmark frame while listening. */
+    onLandmarksDetected?: (frame: LandmarkFrame) => void;
+    /** Called when the user explicitly finalizes the current sentence. */
+    onFinalize?: () => void;
+    /**
+     * Recognition state reported by the page from the server events. While the
+     * camera is on it decides the badge and whether Finalize is enabled.
+     */
+    status?: ServerState;
 }
 
 const DETECTION_INTERVAL_MS = 100; // ~10 fps
 
 const STATE_BADGE_CLASS: Record<RecognitionState, string> = {
-  idle: "bg-black/60",
-  listening: "bg-emerald-600/80",
-  processing: "bg-amber-500/90",
-  error: "bg-red-600/90",
+    idle: "bg-black/60",
+    listening: "bg-emerald-600/80",
+    processing: "bg-amber-500/90",
+    error: "bg-red-600/90",
 };
 
 export default function CameraFeed({
-  onStreamReady,
-  onStreamStopped,
-  onLandmarksDetected,
-  onFinalize,
-  status,
+    onStreamReady,
+    onStreamStopped,
+    onLandmarksDetected,
+    onFinalize,
+    status,
 }: CameraFeedProps) {
-  const { t } = useTranslation();
-  const { initialize, detectFrame, close, loadError } = useHolisticLandmarks();
+    const { t } = useTranslation();
+    const { initialize, detectFrame, close, loadError } = useHolisticLandmarks();
 
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const detectionIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const streamRef = useRef<MediaStream | null>(null);
+    const detectionIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const [state, setState] = useState<RecognitionState>("idle");
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [modelLoading, setModelLoading] = useState(false);
+    const [state, setState] = useState<RecognitionState>("idle");
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const [modelLoading, setModelLoading] = useState(false);
 
-  const stopDetection = useCallback(() => {
-    if (detectionIntervalRef.current) {
-      clearInterval(detectionIntervalRef.current);
-      detectionIntervalRef.current = null;
-    }
-  }, []);
+    const stopDetection = useCallback(() => {
+        if (detectionIntervalRef.current) {
+            clearInterval(detectionIntervalRef.current);
+            detectionIntervalRef.current = null;
+        }
+    }, []);
 
-  const startDetection = useCallback(() => {
-    stopDetection();
+    const startDetection = useCallback(() => {
+        stopDetection();
 
-    detectionIntervalRef.current = setInterval(() => {
-      const video = videoRef.current;
-      if (!video) return;
+        detectionIntervalRef.current = setInterval(() => {
+            const video = videoRef.current;
+            if (!video) return;
 
-      const frame = detectFrame(video, performance.now());
-      if (frame) {
-        onLandmarksDetected?.(frame);
-      }
-    }, DETECTION_INTERVAL_MS);
-  }, [detectFrame, onLandmarksDetected, stopDetection]);
+            const frame = detectFrame(video, performance.now());
+            if (frame) {
+                onLandmarksDetected?.(frame);
+            }
+        }, DETECTION_INTERVAL_MS);
+    }, [detectFrame, onLandmarksDetected, stopDetection]);
 
-  const startCamera = useCallback(async () => {
-    setErrorMessage(null);
-    setModelLoading(true);
+    const startCamera = useCallback(async () => {
+        setErrorMessage(null);
+        setModelLoading(true);
 
-    try {
-      await initialize();
+        try {
+            await initialize();
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 1280, height: 720, facingMode: "user" },
-        audio: false,
-      });
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { width: 1280, height: 720, facingMode: "user" },
+                audio: false,
+            });
 
-      streamRef.current = stream;
+            streamRef.current = stream;
 
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
+            if (videoRef.current) {
+                videoRef.current.srcObject = stream;
+                await videoRef.current.play();
+            }
 
-      setModelLoading(false);
-      setState("listening");
-      onStreamReady?.(stream);
-      startDetection();
-    } catch (err) {
-      console.error("Camera/model initialization error:", err);
-      setModelLoading(false);
-      setState("error");
-      setErrorMessage(
-        err instanceof Error ? err.message : t("camera.accessError")
-      );
-    }
-  }, [initialize, onStreamReady, startDetection, t]);
+            setModelLoading(false);
+            setState("listening");
+            onStreamReady?.(stream);
+            startDetection();
+        } catch (err) {
+            console.error("Camera/model initialization error:", err);
+            setModelLoading(false);
+            setState("error");
+            setErrorMessage(err instanceof Error ? err.message : t("camera.accessError"));
+        }
+    }, [initialize, onStreamReady, startDetection, t]);
 
-  const stopCamera = useCallback(() => {
-    stopDetection();
+    const stopCamera = useCallback(() => {
+        stopDetection();
 
-    streamRef.current?.getTracks().forEach((track) => track.stop());
-    streamRef.current = null;
+        streamRef.current?.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
 
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
+        if (videoRef.current) {
+            videoRef.current.srcObject = null;
+        }
 
-    setState("idle");
-    onStreamStopped?.();
-  }, [onStreamStopped, stopDetection]);
+        setState("idle");
+        onStreamStopped?.();
+    }, [onStreamStopped, stopDetection]);
 
-  // While the camera is on, the recognition state comes from the server events.
-  const displayState: RecognitionState =
-    state === "idle" || state === "error" ? state : (status ?? state);
+    // While the camera is on, the recognition state comes from the server events.
+    const displayState: RecognitionState =
+        state === "idle" || state === "error" ? state : (status ?? state);
 
-  const finalizeRecognition = useCallback(() => {
-    if (displayState !== "listening") return;
-    onFinalize?.();
-  }, [displayState, onFinalize]);
+    const finalizeRecognition = useCallback(() => {
+        if (displayState !== "listening") return;
+        onFinalize?.();
+    }, [displayState, onFinalize]);
 
-  // Clean up on unmount.
-  useEffect(() => {
-    return () => {
-      stopDetection();
-      streamRef.current?.getTracks().forEach((track) => track.stop());
-      close();
+    // Clean up on unmount.
+    useEffect(() => {
+        return () => {
+            stopDetection();
+            streamRef.current?.getTracks().forEach((track) => track.stop());
+            close();
+        };
+    }, [stopDetection, close]);
+
+    const stateLabel: Record<RecognitionState, string> = {
+        idle: t("state.idle"),
+        listening: t("state.listening"),
+        processing: t("state.processing"),
+        error: t("state.error"),
     };
-  }, [stopDetection, close]);
 
-  const stateLabel: Record<RecognitionState, string> = {
-    idle: t("state.idle"),
-    listening: t("state.listening"),
-    processing: t("state.processing"),
-    error: t("state.error"),
-  };
+    return (
+        <div className="flex flex-col items-center gap-4">
+            <div className="relative w-full max-w-2xl aspect-video bg-black rounded-lg overflow-hidden">
+                <video ref={videoRef} className="w-full h-full object-cover" muted playsInline />
 
-  return (
-    <div className="flex flex-col items-center gap-4">
-      <div className="relative w-full max-w-2xl aspect-video bg-black rounded-lg overflow-hidden">
-        <video
-          ref={videoRef}
-          className="w-full h-full object-cover"
-          muted
-          playsInline
-        />
+                <div
+                    role="status"
+                    aria-live="polite"
+                    className={`absolute top-2 left-2 px-3 py-1 rounded-full text-sm font-medium text-white ${STATE_BADGE_CLASS[modelLoading ? "processing" : displayState]}`}
+                >
+                    {modelLoading ? t("state.processing") : stateLabel[displayState]}
+                </div>
+            </div>
 
-        <div
-          role="status"
-          aria-live="polite"
-          className={`absolute top-2 left-2 px-3 py-1 rounded-full text-sm font-medium text-white ${STATE_BADGE_CLASS[modelLoading ? "processing" : displayState]}`}
-        >
-          {modelLoading ? t("state.processing") : stateLabel[displayState]}
+            {(errorMessage || loadError) && (
+                <p className="text-red-500 text-sm">{errorMessage || loadError}</p>
+            )}
+
+            <div className="flex gap-3">
+                {state === "idle" || state === "error" ? (
+                    <button
+                        onClick={startCamera}
+                        disabled={modelLoading}
+                        className="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {t("controls.startCamera")}
+                    </button>
+                ) : (
+                    <>
+                        <button
+                            onClick={finalizeRecognition}
+                            disabled={displayState !== "listening"}
+                            className="px-4 py-2 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {t("controls.finalize")}
+                        </button>
+                        <button
+                            onClick={stopCamera}
+                            className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 transition"
+                        >
+                            {t("controls.stopCamera")}
+                        </button>
+                    </>
+                )}
+            </div>
         </div>
-      </div>
-
-      {(errorMessage || loadError) && (
-        <p className="text-red-500 text-sm">{errorMessage || loadError}</p>
-      )}
-
-      <div className="flex gap-3">
-        {state === "idle" || state === "error" ? (
-          <button
-            onClick={startCamera}
-            disabled={modelLoading}
-            className="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {t("controls.startCamera")}
-          </button>
-        ) : (
-          <>
-            <button
-              onClick={finalizeRecognition}
-              disabled={displayState !== "listening"}
-              className="px-4 py-2 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {t("controls.finalize")}
-            </button>
-            <button
-              onClick={stopCamera}
-              className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 transition"
-            >
-              {t("controls.stopCamera")}
-            </button>
-          </>
-        )}
-      </div>
-    </div>
-  );
+    );
 }

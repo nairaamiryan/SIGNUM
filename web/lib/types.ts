@@ -7,24 +7,18 @@ import type {
 } from "./constants";
 
 // Derived from the ConnectionState constant map in constants.ts.
-export type ConnectionState =
-    (typeof ConnectionStateMap)[keyof typeof ConnectionStateMap];
+export type ConnectionState = (typeof ConnectionStateMap)[keyof typeof ConnectionStateMap];
 
 // Derived from the ServerState constant map in constants.ts.
-export type ServerState =
-    (typeof ServerStateMap)[keyof typeof ServerStateMap];
+export type ServerState = (typeof ServerStateMap)[keyof typeof ServerStateMap];
 
 // Status of a generated sentence (NLP layer), from the SentenceStatus constant map.
-export type SentenceStatus =
-    (typeof SentenceStatusMap)[keyof typeof SentenceStatusMap];
+export type SentenceStatus = (typeof SentenceStatusMap)[keyof typeof SentenceStatusMap];
 
 // Confidence class of one recognized sign, from the GlossStatus constant map.
-export type GlossStatus =
-    (typeof GlossStatusMap)[keyof typeof GlossStatusMap];
+export type GlossStatus = (typeof GlossStatusMap)[keyof typeof GlossStatusMap];
 
-export type DistributiveOmit<T, K extends keyof T> = T extends unknown
-    ? Omit<T, K>
-    : never;
+export type DistributiveOmit<T, K extends keyof T> = T extends unknown ? Omit<T, K> : never;
 
 export interface UseRecognitionSocketOptions {
     onCaption?: (text: string, gloss: string[], confidence: number) => void;
@@ -56,10 +50,7 @@ export interface ClientFinalizeMessage {
     sessionId: string;
 }
 
-export type ClientMessage =
-    | ClientConnectMessage
-    | ClientLandmarksMessage
-    | ClientFinalizeMessage;
+export type ClientMessage = ClientConnectMessage | ClientLandmarksMessage | ClientFinalizeMessage;
 
 // Messages received from the Gesture Recognition Service.
 export interface ServerCaptionMessage {

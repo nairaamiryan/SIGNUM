@@ -21,8 +21,7 @@ export interface LandmarkFrame {
 const MODEL_ASSET_PATH =
     "https://storage.googleapis.com/mediapipe-models/holistic_landmarker/holistic_landmarker/float16/latest/holistic_landmarker.task";
 
-const WASM_BASE_PATH =
-    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1/wasm";
+const WASM_BASE_PATH = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1/wasm";
 
 export function useHolisticLandmarks() {
     const landmarkerRef = useRef<HolisticLandmarker | null>(null);
@@ -44,9 +43,7 @@ export function useHolisticLandmarks() {
             setIsReady(true);
         } catch (err) {
             console.error("Failed to initialize MediaPipe Holistic:", err);
-            setLoadError(
-                err instanceof Error ? err.message : "Failed to load landmark model"
-            );
+            setLoadError(err instanceof Error ? err.message : "Failed to load landmark model");
         }
     }, []);
 
@@ -65,13 +62,16 @@ export function useHolisticLandmarks() {
 
             return {
                 timestamp: timestampMs,
-                leftHand: result.leftHandLandmarks?.[0]?.map((p) => ({ x: p.x, y: p.y, z: p.z })) ?? null,
-                rightHand: result.rightHandLandmarks?.[0]?.map((p) => ({ x: p.x, y: p.y, z: p.z })) ?? null,
+                leftHand:
+                    result.leftHandLandmarks?.[0]?.map((p) => ({ x: p.x, y: p.y, z: p.z })) ?? null,
+                rightHand:
+                    result.rightHandLandmarks?.[0]?.map((p) => ({ x: p.x, y: p.y, z: p.z })) ??
+                    null,
                 face: result.faceLandmarks?.[0]?.map((p) => ({ x: p.x, y: p.y, z: p.z })) ?? null,
                 pose: result.poseLandmarks?.[0]?.map((p) => ({ x: p.x, y: p.y, z: p.z })) ?? null,
             };
         },
-        []
+        [],
     );
 
     const close = useCallback(() => {

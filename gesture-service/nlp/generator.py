@@ -130,13 +130,17 @@ class NLPService:
             self._validate(sentence, glosses, self.max_words_per_gloss)
         except LLMError as exc:
             logger.warning(
-                "LLM call failed for utterance %s: %s", sequence.utterance_id, exc.code,
+                "LLM call failed for utterance %s: %s",
+                sequence.utterance_id,
+                exc.code,
                 extra={"session_id": sequence.session_id},
             )
             return result(gloss_text, SentenceStatus.FALLBACK, [f"llm_{exc.code}"])
         except ValueError as exc:
             logger.warning(
-                "LLM output rejected for utterance %s: %s", sequence.utterance_id, exc,
+                "LLM output rejected for utterance %s: %s",
+                sequence.utterance_id,
+                exc,
                 extra={"session_id": sequence.session_id},
             )
             return result(gloss_text, SentenceStatus.FALLBACK, ["invalid_output"])
@@ -151,7 +155,9 @@ class NLPService:
         final = result(sentence, status, extra)
         logger.info(
             "Sentence generated (%s) for utterance %s: %s",
-            status.value, sequence.utterance_id, sentence,
+            status.value,
+            sequence.utterance_id,
+            sentence,
             extra={"session_id": sequence.session_id, "audit": True},
         )
         return final
@@ -190,9 +196,7 @@ class NLPService:
         if not letters or len(armenian) / len(letters) < _MIN_ARMENIAN_RATIO:
             raise ValueError("sentence is not written in Armenian")
 
-        if any(c.isdigit() for c in sentence) and not any(
-            c.isdigit() for g in glosses for c in g
-        ):
+        if any(c.isdigit() for c in sentence) and not any(c.isdigit() for g in glosses for c in g):
             raise ValueError("sentence contains digits that are not in the glosses")
 
         if len(sentence.split()) > max_words_per_gloss * max(len(glosses), 1) + 4:

@@ -11,22 +11,23 @@ or from local directory if cached.
 """
 
 from __future__ import annotations
+
 import argparse
 import json
 import logging
-import os
 import sys
 import time
 import urllib.request
 from collections import Counter
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
+
 import torch
 
 # Ensure parent directory is in sys.path to import spoter package
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from spoter.label_map import GlossLabelMap, RUSSIAN_TO_ARMENIAN_CORE, russian_gloss_to_armenian
+from spoter.label_map import RUSSIAN_TO_ARMENIAN_CORE, GlossLabelMap, russian_gloss_to_armenian
 from spoter.normalization import normalize_spoter_tensor
 from spoter.preprocessing import slovo_to_spoter_tensor
 
@@ -40,18 +41,21 @@ def fetch_hf_rows(split: str, offset: int, length: int = 50) -> List[dict]:
         f"https://datasets-server.huggingface.co/rows"
         f"?dataset=karinversan/slovo-full-landmarks&config=default&split={split}&offset={offset}&length={length}"
     )
-    req = urllib.request.Request(
-        url,
-        headers={"User-Agent": "SIGNUM-SPOTER/1.0 (Mozilla/5.0)"}
-    )
+    req = urllib.request.Request(url, headers={"User-Agent": "SIGNUM-SPOTER/1.0 (Mozilla/5.0)"})
     for attempt in range(5):
         try:
             with urllib.request.urlopen(req, timeout=30) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
                 return [r["row"] for r in data.get("rows", [])]
         except Exception as exc:
-            logger.warning("Attempt %d failed to fetch %s (offset %d): %s. Retrying...", attempt + 1, split, offset, exc)
-            time.sleep(2 ** attempt)
+            logger.warning(
+                "Attempt %d failed to fetch %s (offset %d): %s. Retrying...",
+                attempt + 1,
+                split,
+                offset,
+                exc,
+            )
+            time.sleep(2**attempt)
     return []
 
 
@@ -118,7 +122,9 @@ def prepare(
         train_split = train_split.select_columns(avail_cols)
         test_split = ds.get("test") or ds.get("validation")
         if test_split is not None:
-            test_split = test_split.select_columns([c for c in needed_cols if c in test_split.column_names])
+            test_split = test_split.select_columns(
+                [c for c in needed_cols if c in test_split.column_names]
+            )
         if max_train_samples:
             train_split = train_split.select(range(min(max_train_samples, len(train_split))))
         if test_split is not None and max_test_samples:
@@ -133,7 +139,9 @@ def prepare(
         train_raw: List[dict] = []
         offset = 0
         while len(train_raw) < max_tr:
-            chunk = fetch_hf_rows("train", offset=offset, length=min(batch_fetch_size, max_tr - len(train_raw)))
+            chunk = fetch_hf_rows(
+                "train", offset=offset, length=min(batch_fetch_size, max_tr - len(train_raw))
+            )
             if not chunk:
                 break
             train_raw.extend(chunk)
@@ -144,7 +152,9 @@ def prepare(
         test_raw: List[dict] = []
         offset = 0
         while len(test_raw) < max_te:
-            chunk = fetch_hf_rows("test", offset=offset, length=min(batch_fetch_size, max_te - len(test_raw)))
+            chunk = fetch_hf_rows(
+                "test", offset=offset, length=min(batch_fetch_size, max_te - len(test_raw))
+            )
             if not chunk:
                 break
             test_raw.extend(chunk)
@@ -166,7 +176,9 @@ def prepare(
                 gloss_counts[g] += 1
 
     if core_only:
-        gloss_counts = Counter({g: c for g, c in gloss_counts.items() if g.lower() in RUSSIAN_TO_ARMENIAN_CORE})
+        gloss_counts = Counter(
+            {g: c for g, c in gloss_counts.items() if g.lower() in RUSSIAN_TO_ARMENIAN_CORE}
+        )
         logger.info("Filtered to %d curated core Armenian classes.", len(gloss_counts))
 
     if top_k_classes:
@@ -206,13 +218,35 @@ def prepare(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Prepare Slovo dataset for SPOTER training")
-    parser.add_argument("--output_dir", type=str, default="data", help="Directory to save .pt and label_map.json")
-    parser.add_argument("--dataset_dir", type=str, default=None, help="Local dataset directory saved by download_dataset.py")
-    parser.add_argument("--max_train_samples", type=int, default=None, help="Train samples to prepare")
-    parser.add_argument("--max_test_samples", type=int, default=None, help="Test samples to prepare")
-    parser.add_argument("--batch_fetch_size", type=int, default=50, help="Batch size for API fetches")
-    parser.add_argument("--top_k_classes", type=int, default=None, help="Optional limit to top K most frequent classes")
-    parser.add_argument("--core_only", action="store_true", help="Filter to curated RUSSIAN_TO_ARMENIAN_CORE classes")
+    parser.add_argument(
+        "--output_dir", type=str, default="data", help="Directory to save .pt and label_map.json"
+    )
+    parser.add_argument(
+        "--dataset_dir",
+        type=str,
+        default=None,
+        help="Local dataset directory saved by download_dataset.py",
+    )
+    parser.add_argument(
+        "--max_train_samples", type=int, default=None, help="Train samples to prepare"
+    )
+    parser.add_argument(
+        "--max_test_samples", type=int, default=None, help="Test samples to prepare"
+    )
+    parser.add_argument(
+        "--batch_fetch_size", type=int, default=50, help="Batch size for API fetches"
+    )
+    parser.add_argument(
+        "--top_k_classes",
+        type=int,
+        default=None,
+        help="Optional limit to top K most frequent classes",
+    )
+    parser.add_argument(
+        "--core_only",
+        action="store_true",
+        help="Filter to curated RUSSIAN_TO_ARMENIAN_CORE classes",
+    )
     args = parser.parse_args()
 
     prepare(

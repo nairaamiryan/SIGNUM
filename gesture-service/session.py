@@ -10,8 +10,8 @@ import time
 from dataclasses import dataclass, field
 from enum import Enum
 
-from landmark_buffer import LandmarkBuffer
 from gloss_sequence import GlossSequenceProcessor
+from landmark_buffer import LandmarkBuffer
 from spotting import HeuristicGestureSpotter
 
 

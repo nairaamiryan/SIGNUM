@@ -2,9 +2,8 @@
 
 import json
 import unittest
-from dataclasses import dataclass
 
-from gloss_sequence import GlossToken, GlossSequence
+from gloss_sequence import GlossSequence, GlossToken
 from nlp import GeminiProvider, LLMError, NLPService, SentenceStatus, build_provider
 from nlp.prompt import MISSING_MARKER, UNCERTAIN_MARKER, build_user_prompt
 
@@ -14,7 +13,9 @@ GLOSS_I, GLOSS_WATER, GLOSS_WANT = "ԵՍ", "ՋՈՒՐ", "ՈՒԶԵԼ"
 
 
 def token(gloss, status="accepted", start=0):
-    return GlossToken(gloss=gloss, confidence=0.9, start_ms=start, end_ms=start + 500, status=status)
+    return GlossToken(
+        gloss=gloss, confidence=0.9, start_ms=start, end_ms=start + 500, status=status
+    )
 
 
 def sequence(glosses=(GLOSS_I, GLOSS_WATER, GLOSS_WANT), gaps=(), statuses=None):
@@ -173,7 +174,11 @@ class GeminiProviderTests(unittest.TestCase):
         self.assertEqual(body["generationConfig"]["responseMimeType"], "application/json")
 
     def test_thought_parts_are_ignored(self):
-        body = {"candidates": [{"content": {"parts": [{"text": "x", "thought": True}, {"text": "ANSWER"}]}}]}
+        body = {
+            "candidates": [
+                {"content": {"parts": [{"text": "x", "thought": True}, {"text": "ANSWER"}]}}
+            ]
+        }
         provider, _ = self.make([(200, json.dumps(body).encode())])
         self.assertEqual(provider.generate("s", "u"), "ANSWER")
 
@@ -228,7 +233,9 @@ class GeminiProviderTests(unittest.TestCase):
 
 class BuildProviderTests(unittest.TestCase):
     def test_gemini_with_key(self):
-        provider = build_provider({"LLM_PROVIDER": "gemini", "GEMINI_API_KEY": "k", "LLM_MODEL": "m2"})
+        provider = build_provider(
+            {"LLM_PROVIDER": "gemini", "GEMINI_API_KEY": "k", "LLM_MODEL": "m2"}
+        )
         self.assertIsInstance(provider, GeminiProvider)
         self.assertEqual(provider.model, "m2")
 

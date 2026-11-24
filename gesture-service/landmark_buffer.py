@@ -8,7 +8,7 @@ segments.
 """
 
 from collections import deque
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional
 
 from constants import BUFFER_MAX_FRAMES

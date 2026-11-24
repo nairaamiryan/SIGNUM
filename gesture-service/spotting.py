@@ -21,22 +21,22 @@ Two layers live in this module:
    class with the same process / flush / reset methods can replace the heuristic.
 """
 
+from collections import deque
 from dataclasses import dataclass
 from enum import Enum
-from collections import deque
 from typing import Optional, Protocol
 
-from landmark_buffer import LandmarkFrame
 from constants import (
-    MOTION_THRESHOLD,
-    END_MOTION_THRESHOLD,
-    MIN_ACTIVE_FRAMES,
-    IDLE_FRAMES_TO_END_SEGMENT,
-    PRE_ROLL_FRAMES,
-    COARTICULATION_MIN_SEGMENT_FRAMES,
     COARTICULATION_DIP_RATIO,
+    COARTICULATION_MIN_SEGMENT_FRAMES,
+    END_MOTION_THRESHOLD,
+    IDLE_FRAMES_TO_END_SEGMENT,
+    MIN_ACTIVE_FRAMES,
+    MOTION_THRESHOLD,
+    PRE_ROLL_FRAMES,
     SEGMENT_MAX_FRAMES,
 )
+from landmark_buffer import LandmarkFrame
 
 
 def _hand_motion(prev: list[dict] | None, curr: list[dict] | None) -> float:
@@ -113,10 +113,10 @@ def is_neutral_pose(frame: LandmarkFrame) -> bool:
 
 # --- Segment + spotter interface -------------------------------------------
 class SegmentReason(str, Enum):
-    IDLE = "idle"                      # signer returned to rest
+    IDLE = "idle"  # signer returned to rest
     COARTICULATION = "coarticulation"  # split at a motion minimum between two signs
-    MAX_LENGTH = "max_length"          # segment hit SEGMENT_MAX_FRAMES
-    FLUSH = "flush"                    # closed on request (e.g. finalize)
+    MAX_LENGTH = "max_length"  # segment hit SEGMENT_MAX_FRAMES
+    FLUSH = "flush"  # closed on request (e.g. finalize)
 
 
 @dataclass
@@ -217,8 +217,8 @@ class HeuristicGestureSpotter:
         valley = self._find_valley()
         if valley is not None:
             segment = Segment(self._frames[: valley + 1], SegmentReason.COARTICULATION)
-            self._frames = self._frames[valley + 1:]
-            self._motion = self._motion[valley + 1:]
+            self._frames = self._frames[valley + 1 :]
+            self._motion = self._motion[valley + 1 :]
             self._idle_run = 0
             return [segment]
 

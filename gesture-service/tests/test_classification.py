@@ -2,26 +2,24 @@
 Unit and integration tests for the SPOTER gesture classification component.
 """
 
-import os
-from pathlib import Path
 import tempfile
+from pathlib import Path
+
 import pytest
 import torch
-import torch.nn as nn
 
-from landmark_buffer import LandmarkFrame
-from spoter.gaussian_noise import GaussianNoise
-from spoter.label_map import GlossLabelMap, russian_gloss_to_armenian
-from spoter.normalization import normalize_spoter_tensor
-from spoter.preprocessing import frames_to_spoter_tensor, slovo_to_spoter_tensor
-from spoter.spoter_model import SPOTER
-import classification
 from classification import (
     ClassificationResult,
     classify_segment,
     is_model_loaded,
     set_model,
 )
+from landmark_buffer import LandmarkFrame
+from spoter.gaussian_noise import GaussianNoise
+from spoter.label_map import GlossLabelMap, russian_gloss_to_armenian
+from spoter.normalization import normalize_spoter_tensor
+from spoter.preprocessing import frames_to_spoter_tensor, slovo_to_spoter_tensor
+from spoter.spoter_model import SPOTER
 
 
 def _make_dummy_frame(t: int = 0) -> LandmarkFrame:
@@ -35,8 +33,8 @@ def _make_dummy_frame(t: int = 0) -> LandmarkFrame:
     pose[11] = {"x": 0.4, "y": 0.3, "z": 0.0}  # left shoulder
     pose[12] = {"x": 0.6, "y": 0.3, "z": 0.0}  # right shoulder
     pose[0] = {"x": 0.5, "y": 0.15, "z": 0.0}  # nose
-    pose[2] = {"x": 0.45, "y": 0.14, "z": 0.0} # left eye
-    pose[5] = {"x": 0.55, "y": 0.14, "z": 0.0} # right eye
+    pose[2] = {"x": 0.45, "y": 0.14, "z": 0.0}  # left eye
+    pose[5] = {"x": 0.55, "y": 0.14, "z": 0.0}  # right eye
 
     return LandmarkFrame(
         timestamp=1000 + t * 50,
@@ -130,7 +128,9 @@ def test_gloss_label_map_serialization():
 
 def test_spoter_architecture():
     num_classes = 4
-    model = SPOTER(num_classes=num_classes, hidden_dim=108, nhead=9, num_encoder_layers=2, num_decoder_layers=2)
+    model = SPOTER(
+        num_classes=num_classes, hidden_dim=108, nhead=9, num_encoder_layers=2, num_decoder_layers=2
+    )
 
     # 1. 2D single sequence input: (T=15, hidden_dim=108)
     x_single = torch.randn(15, 108)
@@ -160,7 +160,9 @@ def test_classify_segment_fallback_when_no_model():
 
 def test_classify_segment_with_loaded_model():
     num_classes = 3
-    model = SPOTER(num_classes=num_classes, hidden_dim=108, nhead=9, num_encoder_layers=2, num_decoder_layers=2)
+    model = SPOTER(
+        num_classes=num_classes, hidden_dim=108, nhead=9, num_encoder_layers=2, num_decoder_layers=2
+    )
     model.eval()
 
     label_map = GlossLabelMap(idx_to_gloss={0: "ԲԱՐԵՎ", 1: "ՋՈՒՐ", 2: "ՇՆՈՐՀԱԿԱԼՈՒԹՅՈՒՆ"})

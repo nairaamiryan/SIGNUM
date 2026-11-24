@@ -1,17 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useReducer } from "react";
-import {
-    captionFeedReducer,
-    deriveRecognitionState,
-    initialCaptionFeedState,
-} from "./captionFeed";
+import { captionFeedReducer, deriveRecognitionState, initialCaptionFeedState } from "./captionFeed";
 import { PENDING_TIMEOUT_MS, UNRECOGNIZED_NOTICE_MS } from "./constants";
-import type {
-    ServerGlossSequenceMessage,
-    ServerSentenceMessage,
-    ServerState,
-} from "./types";
+import type { ServerGlossSequenceMessage, ServerSentenceMessage, ServerState } from "./types";
 
 /**
  * Real-time captioning state (KAN-23): partial results, completed sentences,
@@ -27,20 +19,20 @@ export function useCaptionFeed() {
     const onCaption = useCallback(
         (_text: string, gloss: string[], confidence: number) =>
             dispatch({ type: "caption", gloss, confidence }),
-        []
+        [],
     );
     const onUnrecognized = useCallback(() => dispatch({ type: "unrecognized" }), []);
     const onServerState = useCallback(
         (serverState: ServerState) => dispatch({ type: "server_state", state: serverState }),
-        []
+        [],
     );
     const onGlossSequence = useCallback(
         (message: ServerGlossSequenceMessage) => dispatch({ type: "gloss_sequence", message }),
-        []
+        [],
     );
     const onSentence = useCallback(
         (message: ServerSentenceMessage) => dispatch({ type: "sentence", message }),
-        []
+        [],
     );
     const onError = useCallback((message: string) => dispatch({ type: "error", message }), []);
     const onFinalizeRequested = useCallback(() => dispatch({ type: "finalize_requested" }), []);
@@ -49,7 +41,10 @@ export function useCaptionFeed() {
     // The "gesture not recognized" notice disappears by itself.
     useEffect(() => {
         if (!state.unrecognized) return;
-        const timer = setTimeout(() => dispatch({ type: "clear_unrecognized" }), UNRECOGNIZED_NOTICE_MS);
+        const timer = setTimeout(
+            () => dispatch({ type: "clear_unrecognized" }),
+            UNRECOGNIZED_NOTICE_MS,
+        );
         return () => clearTimeout(timer);
     }, [state.unrecognized]);
 

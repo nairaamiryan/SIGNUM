@@ -12,7 +12,11 @@ class GaussianNoise(object):
         self.std = std
 
     def __call__(self, tensor: torch.Tensor) -> torch.Tensor:
-        return tensor + torch.randn(tensor.size(), dtype=tensor.dtype, device=tensor.device) * self.std + self.mean
+        return (
+            tensor
+            + torch.randn(tensor.size(), dtype=tensor.dtype, device=tensor.device) * self.std
+            + self.mean
+        )
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(mean={self.mean}, std={self.std})"

@@ -4,9 +4,9 @@ from the SPOTER paper: "Sign Pose-based Transformer for Word-level Sign Language
 """
 
 import math
+
 import numpy as np
 import torch
-
 
 # Landmark slice indices in the 54-landmark tensor:
 LEFT_HAND_SLICE = slice(0, 21)
@@ -76,7 +76,11 @@ def normalize_spoter_tensor(tensor: torch.Tensor) -> torch.Tensor:
             head_metric = 0.2  # default fallback
 
         if head_metric is not None and head_metric > 1e-4:
-            neck_x = neck[0] if (neck[0] != 0 or neck[1] != 0) else (left_shoulder[0] + right_shoulder[0]) / 2.0
+            neck_x = (
+                neck[0]
+                if (neck[0] != 0 or neck[1] != 0)
+                else (left_shoulder[0] + right_shoulder[0]) / 2.0
+            )
             eye_y = left_eye[1] if (left_eye[0] != 0 or left_eye[1] != 0) else (nose[1] + 0.05)
 
             start_x = neck_x - 3.0 * head_metric

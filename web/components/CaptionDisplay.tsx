@@ -30,8 +30,7 @@ const STATUS_BADGE_CLASS: Record<SentenceStatusType, string> = {
         "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300",
     [SentenceStatus.PARTIAL]:
         "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
-    [SentenceStatus.FALLBACK]:
-        "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
+    [SentenceStatus.FALLBACK]: "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
 };
 
 const CARD_BORDER_CLASS: Record<SentenceStatusType, string> = {
@@ -101,7 +100,9 @@ export default function CaptionDisplay({
                                                 uncertain
                                                     ? t("caption.uncertain")
                                                     : t("caption.confidence", {
-                                                          value: (partial.confidence * 100).toFixed(0),
+                                                          value: (partial.confidence * 100).toFixed(
+                                                              0,
+                                                          ),
                                                       })
                                             }
                                         >
@@ -170,7 +171,10 @@ export default function CaptionDisplay({
                     )}
 
                     {KNOWN_WARNINGS.filter((w) => latest.warnings.includes(w)).map((warning) => (
-                        <p key={warning} className="text-xs text-amber-700 dark:text-amber-400 mt-1">
+                        <p
+                            key={warning}
+                            className="text-xs text-amber-700 dark:text-amber-400 mt-1"
+                        >
                             ⚠ {t(`caption.warnings.${warning}`)}
                         </p>
                     ))}

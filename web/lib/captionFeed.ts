@@ -100,7 +100,7 @@ function addCaption(captions: CaptionEntry[], entry: CaptionEntry): CaptionEntry
 
 export function captionFeedReducer(
     state: CaptionFeedState,
-    action: CaptionFeedAction
+    action: CaptionFeedAction,
 ): CaptionFeedState {
     switch (action.type) {
         case "server_state": {
@@ -158,7 +158,10 @@ export function captionFeedReducer(
                 text,
                 status,
                 warnings,
-                glosses: tokens.length > 0 ? tokens.map((g) => g.gloss) : glossText.split(" ").filter(Boolean),
+                glosses:
+                    tokens.length > 0
+                        ? tokens.map((g) => g.gloss)
+                        : glossText.split(" ").filter(Boolean),
                 confidence: averageConfidence(tokens),
             };
             return {

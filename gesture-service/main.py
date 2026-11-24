@@ -17,15 +17,15 @@ import json
 import logging
 import os
 from contextlib import asynccontextmanager
-from backend_log_handler import BackendLogHandler
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
+from backend_log_handler import BackendLogHandler
 from classification import classify_segment
 from gloss_sequence import BOUNDARY_FINALIZE, GlossSequence
-from nlp import NLPService, SentenceStatus
 from landmark_buffer import LandmarkFrame
+from nlp import NLPService, SentenceStatus
 from session import RecognitionState, SessionRegistry
 
 logging.basicConfig(
@@ -66,7 +66,9 @@ async def health_check():
     return {
         "status": "ok",
         "service": "gesture-service",
-        "active_sessions": registry.active_count() if hasattr(registry, "active_count") else "running",
+        "active_sessions": registry.active_count()
+        if hasattr(registry, "active_count")
+        else "running",
     }
 
 
@@ -117,7 +119,9 @@ def parse_landmark_frame(message: dict) -> LandmarkFrame:
 @app.websocket("/")
 async def recognition_socket(websocket: WebSocket):
     await websocket.accept()
-    client_info = f"{websocket.client.host}:{websocket.client.port}" if websocket.client else "unknown"
+    client_info = (
+        f"{websocket.client.host}:{websocket.client.port}" if websocket.client else "unknown"
+    )
     logger.info("WebSocket connection accepted from client %s", client_info)
     session = None
 
@@ -276,7 +280,11 @@ async def recognition_socket(websocket: WebSocket):
     except WebSocketDisconnect:
         if session:
             registry.remove(session.session_id)
-            logger.info("Session %s disconnected", session.session_id, extra={"session_id": session.session_id, "audit": True})
+            logger.info(
+                "Session %s disconnected",
+                session.session_id,
+                extra={"session_id": session.session_id, "audit": True},
+            )
     except Exception:
         logger.exception("Unexpected error in recognition_socket")
         if session:
