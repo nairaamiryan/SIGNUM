@@ -1,4 +1,4 @@
-# Pre-commit hooks (KAN-35)
+# Pre-commit hooks
 
 Every `git commit` runs automated checks on the files you staged, so broken or
 badly formatted code does not reach the repository. The checks are set up with

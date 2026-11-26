@@ -1,8 +1,7 @@
 # WebSocket Communication Contract
 
 This document defines the real-time communication protocol between the
-**Next.js Frontend** and the **FastAPI Gesture Recognition Service**, as
-implemented in KAN-14.
+**Next.js Frontend** and the **FastAPI Gesture Recognition Service**.
 
 - **Endpoint:** `ws://<gesture-service-host>/ws` (configured via
   `NEXT_PUBLIC_WS_URL` on the frontend)
@@ -102,7 +101,7 @@ Sent for any server-side error (e.g. malformed input, internal failure).
 { "type": "error", "message": "Human-readable error description" }
 ```
 
-## Gloss Sequence Processing (KAN-18)
+## Gloss Sequence Processing
 
 Between classification and the NLP/LLM layer, the service collects the
 glosses predicted for each gesture segment into an ordered **gloss
@@ -180,7 +179,7 @@ Configured in `gesture-service/constants.py`:
 - Sequences are bound to the session of the connection that produced them;
   an unfinished utterance is dropped when the connection closes.
 
-## Sentence Generation (KAN-19)
+## Sentence Generation
 
 The NLP layer turns the gloss sequence of an utterance (see the section
 above) into one grammatically correct Armenian sentence using a language
