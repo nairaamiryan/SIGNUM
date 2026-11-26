@@ -5,14 +5,14 @@ with automated body/hand pose normalization and graceful fallback to mock mode.
 """
 
 from __future__ import annotations
+
 import logging
 import os
 import random
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, Optional
 
-import numpy as np
 import torch
 import torch.nn.functional as F
 
@@ -45,7 +45,7 @@ _label_map: Optional[GlossLabelMap] = None
 _device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Mock fallback results when no checkpoint is present
-_MOCK_RESULTS = [
+_MOCK_RESULTS: list[dict[str, Any]] = [
     {"gloss": ["ԵՍ", "ՋՈՒՐ", "ՈՒԶԵԼ"], "text": "Ես ջուր եմ ուզում։"},
     {"gloss": ["ԲԱՐԵՎ"], "text": "Բարև։"},
     {"gloss": ["ՇՆՈՐՀԱԿԱԼՈՒԹՅՈՒՆ"], "text": "Շնորհակալություն։"},
@@ -87,7 +87,6 @@ def load_model(checkpoint_path: Optional[str] = None) -> bool:
         num_classes = model.num_classes
         hidden_dim = model.hidden_dim
 
-
         label_map_data = checkpoint.get("label_map")
         if label_map_data:
             label_map = GlossLabelMap.from_dict(label_map_data)
@@ -97,7 +96,9 @@ def load_model(checkpoint_path: Optional[str] = None) -> bool:
             if label_map_file.exists():
                 label_map = GlossLabelMap.load(label_map_file)
             else:
-                raise ValueError("Checkpoint does not contain label map and label_map.json was not found.")
+                raise ValueError(
+                    "Checkpoint does not contain label map and label_map.json was not found."
+                )
 
         _model = model
         _label_map = label_map
@@ -123,7 +124,9 @@ def load_model(checkpoint_path: Optional[str] = None) -> bool:
         return False
 
 
-def set_model(model: Optional[SPOTER], label_map: Optional[GlossLabelMap], name: str = "", version: str = ""):
+def set_model(
+    model: Optional[SPOTER], label_map: Optional[GlossLabelMap], name: str = "", version: str = ""
+):
     """Explicitly set or reset active model (useful for testing and hot-reloading)."""
     global _model, _label_map, MODEL_NAME, MODEL_VERSION
     _model = model
@@ -158,6 +161,9 @@ def classify_segment(frames: list[LandmarkFrame]) -> Optional[ClassificationResu
             model_version="mock",
         )
 
+    # Guaranteed by is_model_loaded() above; lets Mypy narrow the types.
+    assert _model is not None and _label_map is not None
+
     # 1. Convert frames to (T, 54, 2) tensor
     raw_tensor = frames_to_spoter_tensor(frames)
 
@@ -171,7 +177,7 @@ def classify_segment(frames: list[LandmarkFrame]) -> Optional[ClassificationResu
     # 4. Model inference
     with torch.no_grad():
         outputs = _model(inputs).expand(1, -1, -1)  # (1, 1, num_classes)
-        probs = F.softmax(outputs[0], dim=-1)[0]   # (num_classes,)
+        probs = F.softmax(outputs[0], dim=-1)[0]  # (num_classes,)
 
     top_prob, pred_idx_tensor = torch.max(probs, dim=-1)
     confidence = float(top_prob.item())

@@ -78,6 +78,7 @@ async def check_generation() -> None:
     processor.add_prediction(Prediction("ՋՈՒՐ", 0.9), 1500, 2300)
     processor.add_prediction(Prediction("ՈՒԶԵԼ", 0.9), 3000, 3800)
     sequence = processor.close("finalize")
+    assert sequence is not None  # three accepted glosses always form a sequence
 
     print("Provider:", provider.name, "| model:", provider.model)
     print("Glosses :", sequence.gloss_text)

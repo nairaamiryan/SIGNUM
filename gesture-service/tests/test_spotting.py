@@ -24,7 +24,9 @@ def make_frames(steps, wrist_y=0.4, start_ts=0):
     frames, x = [], 0.0
     for i, d in enumerate([0.0] + list(steps)):
         x += d
-        frames.append(LandmarkFrame(timestamp=start_ts + i, right_hand=_hand(x), pose=_pose(wrist_y)))
+        frames.append(
+            LandmarkFrame(timestamp=start_ts + i, right_hand=_hand(x), pose=_pose(wrist_y))
+        )
     return frames
 
 

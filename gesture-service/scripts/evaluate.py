@@ -4,12 +4,13 @@ Computes top-1 and top-5 accuracy, per-class metrics, and generates an evaluatio
 """
 
 from __future__ import annotations
+
 import argparse
-import json
 import logging
-from pathlib import Path
 import sys
+from pathlib import Path
 from typing import Dict, List, Tuple
+
 import torch
 import torch.nn.functional as F
 
@@ -48,7 +49,6 @@ def evaluate_checkpoint(
     label_map_data = checkpoint["label_map"]
     label_map = GlossLabelMap.from_dict(label_map_data)
 
-
     logger.info("Model loaded (%d classes, %d hidden_dim).", num_classes, model.hidden_dim)
 
     test_path = Path(test_data_path)
@@ -63,7 +63,9 @@ def evaluate_checkpoint(
     top1_correct = 0
     topk_correct = 0
 
-    class_stats: Dict[int, Dict[str, int]] = {i: {"total": 0, "correct": 0} for i in range(num_classes)}
+    class_stats: Dict[int, Dict[str, int]] = {
+        i: {"total": 0, "correct": 0} for i in range(num_classes)
+    }
 
     with torch.no_grad():
         for i, (tensor, label_idx) in enumerate(test_data):
@@ -92,7 +94,9 @@ def evaluate_checkpoint(
     print("SPOTER EVALUATION REPORT")
     print("=" * 60)
     print(f"Checkpoint:       {ckpt_path.name}")
-    print(f"Model Name/Ver:   {checkpoint.get('model_name', 'spoter_arsl')} ({checkpoint.get('model_version', 'v1')})")
+    print(
+        f"Model Name/Ver:   {checkpoint.get('model_name', 'spoter_arsl')} ({checkpoint.get('model_version', 'v1')})"
+    )
     print(f"Total Test Set:   {total} samples")
     print(f"Total Classes:    {num_classes}")
     print(f"Top-1 Accuracy:   {top1_acc:.2f}% ({top1_correct}/{total})")
@@ -109,13 +113,17 @@ def evaluate_checkpoint(
     for c in active_classes[:10]:
         acc = (class_stats[c]["correct"] / class_stats[c]["total"]) * 100.0
         gloss = label_map.decode(c)
-        print(f"  {gloss:15s} (Class {c:3d}): {acc:5.1f}% ({class_stats[c]['correct']}/{class_stats[c]['total']})")
+        print(
+            f"  {gloss:15s} (Class {c:3d}): {acc:5.1f}% ({class_stats[c]['correct']}/{class_stats[c]['total']})"
+        )
 
     print("\nLowest Accuracy Classes:")
     for c in active_classes[-10:]:
         acc = (class_stats[c]["correct"] / class_stats[c]["total"]) * 100.0
         gloss = label_map.decode(c)
-        print(f"  {gloss:15s} (Class {c:3d}): {acc:5.1f}% ({class_stats[c]['correct']}/{class_stats[c]['total']})")
+        print(
+            f"  {gloss:15s} (Class {c:3d}): {acc:5.1f}% ({class_stats[c]['correct']}/{class_stats[c]['total']})"
+        )
     print("=" * 60 + "\n")
 
     report = {
@@ -130,7 +138,9 @@ def evaluate_checkpoint(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Evaluate SPOTER checkpoint")
-    parser.add_argument("--checkpoint", type=str, default="models/spoter_arsl_v1.pth", help="Checkpoint path")
+    parser.add_argument(
+        "--checkpoint", type=str, default="models/spoter_arsl_v1.pth", help="Checkpoint path"
+    )
     parser.add_argument("--test_data", type=str, default="data/test.pt", help="Path to test.pt")
     parser.add_argument("--top_k", type=int, default=5, help="Top-K accuracy")
     parser.add_argument("--force_cpu", action="store_true", help="Force CPU")

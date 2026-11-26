@@ -4,14 +4,14 @@ Reference: Boháček & Hrúz, WACV 2022.
 """
 
 from __future__ import annotations
+
 import argparse
-import json
 import logging
-import os
 import random
 import sys
 from pathlib import Path
 from typing import List, Tuple
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -114,7 +114,7 @@ def train(args):
     if torch.cuda.is_available() and not args.force_cpu:
         device = torch.device("cuda")
         gpu_name = torch.cuda.get_device_name(0)
-        gpu_mem = torch.cuda.get_device_properties(0).total_memory / (1024 ** 2)
+        gpu_mem = torch.cuda.get_device_properties(0).total_memory / (1024**2)
         logger.info("Using CUDA GPU: %s (%.0f MB VRAM)", gpu_name, gpu_mem)
     elif torch.backends.mps.is_available() and not args.force_cpu:
         device = torch.device("mps")
@@ -159,8 +159,12 @@ def train(args):
     val_ds = LandmarkDataset(test_samples, transform=None)
 
     collate_fn = collate_single if args.batch_size == 1 else collate_padded
-    train_loader = DataLoader(train_ds, batch_size=args.batch_size, shuffle=True, collate_fn=collate_fn)
-    val_loader = DataLoader(val_ds, batch_size=args.batch_size, shuffle=False, collate_fn=collate_fn)
+    train_loader = DataLoader(
+        train_ds, batch_size=args.batch_size, shuffle=True, collate_fn=collate_fn
+    )
+    val_loader = DataLoader(
+        val_ds, batch_size=args.batch_size, shuffle=False, collate_fn=collate_fn
+    )
 
     # Model
     model = SPOTER(
@@ -231,12 +235,22 @@ def train(args):
 
         logger.info(
             "Epoch [%d/%d] | Train Loss: %.4f, Acc: %.2f%% | Val Loss: %.4f, Acc: %.2f%% | LR: %.6f",
-            epoch, args.epochs, train_loss, train_acc * 100.0, val_loss, val_acc * 100.0, current_lr
+            epoch,
+            args.epochs,
+            train_loss,
+            train_acc * 100.0,
+            val_loss,
+            val_acc * 100.0,
+            current_lr,
         )
 
         if val_acc >= best_val_acc or epoch == 1:
             best_val_acc = val_acc
-            logger.info("Saving best model checkpoint (Val Acc: %.2f%%) to %s", val_acc * 100.0, checkpoint_path)
+            logger.info(
+                "Saving best model checkpoint (Val Acc: %.2f%%) to %s",
+                val_acc * 100.0,
+                checkpoint_path,
+            )
             torch.save(
                 {
                     "model_state_dict": model.state_dict(),
@@ -260,23 +274,39 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train SPOTER sign language recognition model")
     parser.add_argument("--train_data", type=str, default="data/train.pt", help="Path to train.pt")
     parser.add_argument("--test_data", type=str, default="data/test.pt", help="Path to test.pt")
-    parser.add_argument("--label_map", type=str, default="data/label_map.json", help="Path to label_map.json")
-    parser.add_argument("--output_dir", type=str, default="models", help="Directory to save checkpoint")
+    parser.add_argument(
+        "--label_map", type=str, default="data/label_map.json", help="Path to label_map.json"
+    )
+    parser.add_argument(
+        "--output_dir", type=str, default="models", help="Directory to save checkpoint"
+    )
     parser.add_argument("--model_name", type=str, default="spoter_arsl", help="Model name")
     parser.add_argument("--model_version", type=str, default="v1", help="Model version")
     parser.add_argument("--epochs", type=int, default=50, help="Number of epochs")
-    parser.add_argument("--batch_size", type=int, default=1, help="Batch size (1 preserves native sequence lengths)")
+    parser.add_argument(
+        "--batch_size", type=int, default=1, help="Batch size (1 preserves native sequence lengths)"
+    )
     parser.add_argument("--lr", type=float, default=0.001, help="Learning rate")
-    parser.add_argument("--optimizer", type=str, default="adamw", choices=["sgd", "adamw"], help="Optimizer type")
-    parser.add_argument("--hidden_dim", type=int, default=108, help="Hidden dimension (54 landmarks * 2)")
+    parser.add_argument(
+        "--optimizer", type=str, default="adamw", choices=["sgd", "adamw"], help="Optimizer type"
+    )
+    parser.add_argument(
+        "--hidden_dim", type=int, default=108, help="Hidden dimension (54 landmarks * 2)"
+    )
     parser.add_argument("--nhead", type=int, default=9, help="Number of attention heads")
     parser.add_argument("--num_encoder_layers", type=int, default=6, help="Encoder layers")
     parser.add_argument("--num_decoder_layers", type=int, default=6, help="Decoder layers")
-    parser.add_argument("--gaussian_std", type=float, default=0.001, help="Data augmentation gaussian std")
-    parser.add_argument("--scheduler_factor", type=float, default=0.5, help="LR scheduler reduction factor")
+    parser.add_argument(
+        "--gaussian_std", type=float, default=0.001, help="Data augmentation gaussian std"
+    )
+    parser.add_argument(
+        "--scheduler_factor", type=float, default=0.5, help="LR scheduler reduction factor"
+    )
     parser.add_argument("--scheduler_patience", type=int, default=3, help="LR scheduler patience")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
-    parser.add_argument("--force_cpu", action="store_true", help="Force CPU even if CUDA is available")
+    parser.add_argument(
+        "--force_cpu", action="store_true", help="Force CPU even if CUDA is available"
+    )
     args = parser.parse_args()
 
     train(args)

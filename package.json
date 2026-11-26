@@ -1,0 +1,13 @@
+{
+  "name": "signum",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Repository tooling: Git hooks (Husky) and staged-file checks (lint-staged).",
+  "scripts": {
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "husky": "9.1.7",
+    "lint-staged": "16.4.0"
+  }
+}

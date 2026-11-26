@@ -6,6 +6,7 @@ Reference: Boháček & Hrúz, "Sign Pose-based Transformer for Word-level Sign L
 
 import copy
 from typing import Optional
+
 import torch
 import torch.nn as nn
 
@@ -20,8 +21,14 @@ class SPOTERTransformerDecoderLayer(nn.TransformerDecoderLayer):
     keeping only cross-attention (class query attending to landmark sequence memory) and FFN.
     """
 
-    def __init__(self, d_model: int, nhead: int, dim_feedforward: int = 2048,
-                 dropout: float = 0.1, activation: str = "relu"):
+    def __init__(
+        self,
+        d_model: int,
+        nhead: int,
+        dim_feedforward: int = 2048,
+        dropout: float = 0.1,
+        activation: str = "relu",
+    ):
         super().__init__(d_model, nhead, dim_feedforward, dropout, activation)
         # Retain self.self_attn attribute for PyTorch 2.x TransformerDecoder metadata checks,
         # but omit invoking it in forward() to deactivate self-attention as required by SPOTER.
@@ -41,9 +48,7 @@ class SPOTERTransformerDecoderLayer(nn.TransformerDecoderLayer):
         tgt = tgt + self.dropout1(tgt)
         tgt = self.norm1(tgt)
         tgt2 = self.multihead_attn(
-            tgt, memory, memory,
-            attn_mask=memory_mask,
-            key_padding_mask=memory_key_padding_mask
+            tgt, memory, memory, attn_mask=memory_mask, key_padding_mask=memory_key_padding_mask
         )[0]
         tgt = tgt + self.dropout2(tgt2)
         tgt = self.norm2(tgt)
@@ -123,7 +128,7 @@ class SPOTER(nn.Module):
             h = torch.unsqueeze(inputs.flatten(start_dim=1), 1).float()  # (T, 1, hidden_dim)
             h = self.transformer(
                 self.pos + h,
-                self.class_query.unsqueeze(0)  # (1, 1, hidden_dim)
+                self.class_query.unsqueeze(0),  # (1, 1, hidden_dim)
             ).transpose(0, 1)  # (1, 1, hidden_dim)
             res = self.linear_class(h)  # (1, 1, num_classes)
             return res
@@ -152,12 +157,20 @@ class SPOTER(nn.Module):
 
         num_enc = checkpoint.get("num_encoder_layers")
         if num_enc is None:
-            enc_keys = [k for k in state_dict if k.startswith("transformer.encoder.layers.") and k.endswith(".norm1.weight")]
+            enc_keys = [
+                k
+                for k in state_dict
+                if k.startswith("transformer.encoder.layers.") and k.endswith(".norm1.weight")
+            ]
             num_enc = len(enc_keys) if enc_keys else 6
 
         num_dec = checkpoint.get("num_decoder_layers")
         if num_dec is None:
-            dec_keys = [k for k in state_dict if k.startswith("transformer.decoder.layers.") and k.endswith(".norm1.weight")]
+            dec_keys = [
+                k
+                for k in state_dict
+                if k.startswith("transformer.decoder.layers.") and k.endswith(".norm1.weight")
+            ]
             num_dec = len(dec_keys) if dec_keys else 6
 
         model = cls(
@@ -172,4 +185,3 @@ class SPOTER(nn.Module):
             model.to(device)
         model.eval()
         return model
-

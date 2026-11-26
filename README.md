@@ -196,3 +196,9 @@ Deploy the gesture service first, because the web app needs its public URL.
 The gesture classifier is based on SPOTER (Sign Pose-based Transformer),
 https://github.com/matyasbohacek/spoter (Apache-2.0), trained on the Slovo dataset
 (https://github.com/ai-forever/slovo, CC BY-SA 4.0) and mapped to Armenian glosses.
+
+## Code quality and Git hooks
+
+Every commit is checked automatically: ESLint, Prettier, TypeScript and Vitest for
+`web/`, and Ruff, Mypy and Pytest for `gesture-service/`. Only the service whose files
+you staged is checked. Setup and details: [docs/pre-commit-hooks.md](docs/pre-commit-hooks.md).

@@ -4,9 +4,9 @@ into SPOTER's standard 54-landmark (T, 54, 2) and (T, 108) tensor representation
 """
 
 from typing import Any, Sequence
+
 import numpy as np
 import torch
-
 
 # 12 Upper-body landmarks mapped from MediaPipe Pose:
 # nose=0, left_eye=2, right_eye=5, left_ear=7, right_ear=8,
