@@ -37,6 +37,9 @@ export function useRecognitionSocket({
     const reconnectAttemptsRef = useRef(0);
     const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const intentionalCloseRef = useRef(false);
+    // openSocket schedules its own retry; it reaches itself through this ref
+    // because a callback cannot refer to the variable that is being declared.
+    const openSocketRef = useRef<((isReconnect: boolean) => void) | null>(null);
 
     const [connectionState, setConnectionState] = useState<ConnectionStateType>(
         ConnectionState.IDLE,
@@ -129,7 +132,7 @@ export function useRecognitionSocket({
                     );
                     setConnectionState(ConnectionState.RECONNECTING);
                     reconnectTimeoutRef.current = setTimeout(() => {
-                        openSocket(true);
+                        openSocketRef.current?.(true);
                     }, delay);
                 } else {
                     console.error(
@@ -179,6 +182,10 @@ export function useRecognitionSocket({
         },
         [onCaption, onUnrecognized, onServerState, onGlossSequence, onSentence, onError, t],
     );
+
+    useEffect(() => {
+        openSocketRef.current = openSocket;
+    }, [openSocket]);
 
     const connect = useCallback(() => {
         clearReconnectTimeout();

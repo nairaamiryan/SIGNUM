@@ -64,7 +64,16 @@ function init() {
             id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
             email: { type: DataTypes.STRING, allowNull: false, unique: true },
             name: { type: DataTypes.STRING },
-            passwordHash: { type: DataTypes.STRING, allowNull: false },
+            // Null for accounts that only sign in with Google.
+            passwordHash: { type: DataTypes.STRING },
+            authProvider: {
+                type: DataTypes.STRING,
+                allowNull: false,
+                defaultValue: "local",
+                validate: { isIn: [["local", "google"]] },
+            },
+            googleId: { type: DataTypes.STRING, unique: true },
+            avatarUrl: { type: DataTypes.STRING(2048) },
         },
         { tableName: "users" },
     );

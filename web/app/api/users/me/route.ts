@@ -1,10 +1,10 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { User } from "@/lib/db";
 import { getUserId } from "@/lib/session-auth";
 import { updateUserSchema } from "@/lib/schemas";
 import { ERROR_MESSAGES } from "@/lib/constants";
 
-const attributes = ["id", "email", "name", "createdAt"];
+const attributes = ["id", "email", "name", "avatarUrl", "createdAt"];
 
 export async function GET(req: Request) {
     const userId = getUserId(req);
@@ -26,6 +26,18 @@ export async function PATCH(req: Request) {
     const user = await User.findByPk(userId);
     if (!user) return NextResponse.json({ error: ERROR_MESSAGES.NOT_FOUND }, { status: 404 });
     await user.update(parsed.data);
-    const u = user.get() as { id: string; email: string; name: string; createdAt: Date };
-    return NextResponse.json({ id: u.id, email: u.email, name: u.name, createdAt: u.createdAt });
+    const u = user.get() as {
+        id: string;
+        email: string;
+        name: string;
+        avatarUrl: string | null;
+        createdAt: Date;
+    };
+    return NextResponse.json({
+        id: u.id,
+        email: u.email,
+        name: u.name,
+        avatarUrl: u.avatarUrl,
+        createdAt: u.createdAt,
+    });
 }
