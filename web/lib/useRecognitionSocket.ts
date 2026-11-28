@@ -28,6 +28,7 @@ export function useRecognitionSocket({
     onUnrecognized,
     onServerState,
     onLifecycle,
+    onWarning,
     onGlossSequence,
     onSentence,
     onError,
@@ -180,6 +181,9 @@ export function useRecognitionSocket({
                         case "lifecycle":
                             onLifecycle?.(message);
                             break;
+                        case "warning":
+                            onWarning?.(message.code, message.recoverable);
+                            break;
                         case "gloss_sequence":
                             onGlossSequence?.(message);
                             break;
@@ -204,6 +208,7 @@ export function useRecognitionSocket({
             onUnrecognized,
             onServerState,
             onLifecycle,
+            onWarning,
             onGlossSequence,
             onSentence,
             onError,
@@ -236,6 +241,29 @@ export function useRecognitionSocket({
         if (socketRef.current?.readyState === WebSocket.OPEN && sessionIdRef.current) {
             socketRef.current.send(JSON.stringify({ ...message, sessionId: sessionIdRef.current }));
         }
+    }, []);
+
+    // Handle application interruption (tab backgrounded or page closed) by
+    // resetting any open utterance on the server so stale buffers don't linger.
+    useEffect(() => {
+        const handleInterruption = () => {
+            if (socketRef.current?.readyState === WebSocket.OPEN && sessionIdRef.current) {
+                socketRef.current.send(
+                    JSON.stringify({ type: "restart", sessionId: sessionIdRef.current }),
+                );
+            }
+        };
+        const handleVisibility = () => {
+            if (document.visibilityState === "hidden") {
+                handleInterruption();
+            }
+        };
+        document.addEventListener("visibilitychange", handleVisibility);
+        window.addEventListener("pagehide", handleInterruption);
+        return () => {
+            document.removeEventListener("visibilitychange", handleVisibility);
+            window.removeEventListener("pagehide", handleInterruption);
+        };
     }, []);
 
     // Ensure the socket and any pending reconnect are cleaned up on unmount.

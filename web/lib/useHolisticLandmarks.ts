@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useRef, useCallback, useState } from "react";
 import {
@@ -16,6 +16,10 @@ export interface LandmarkFrame {
     face: Array<{ x: number; y: number; z: number }> | null;
     /** Upper-body pose landmarks. */
     pose: Array<{ x: number; y: number; z: number }> | null;
+    /** Edge-case hints detected by MediaPipe Holistic / camera. */
+    multiplePeople?: boolean;
+    extraneousHands?: boolean;
+    poorIllumination?: boolean;
 }
 
 const MODEL_ASSET_PATH =
@@ -60,6 +64,12 @@ export function useHolisticLandmarks() {
                 return null;
             }
 
+            const multiplePeople =
+                (result.poseLandmarks?.length ?? 0) > 1 || (result.faceLandmarks?.length ?? 0) > 1;
+            const extraneousHands =
+                (result.leftHandLandmarks?.length ?? 0) > 1 ||
+                (result.rightHandLandmarks?.length ?? 0) > 1;
+
             return {
                 timestamp: timestampMs,
                 leftHand:
@@ -69,6 +79,8 @@ export function useHolisticLandmarks() {
                     null,
                 face: result.faceLandmarks?.[0]?.map((p) => ({ x: p.x, y: p.y, z: p.z })) ?? null,
                 pose: result.poseLandmarks?.[0]?.map((p) => ({ x: p.x, y: p.y, z: p.z })) ?? null,
+                multiplePeople,
+                extraneousHands,
             };
         },
         [],

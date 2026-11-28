@@ -96,6 +96,24 @@ LIFECYCLE_FINALIZE_TIMEOUT_MS = 2000
 # Consecutive neutral-pose frames while signing that signal end of signing.
 LIFECYCLE_NEUTRAL_END_FRAMES = 6
 
+# --- Edge cases & error recovery (KAN-27) ---
+# Inter-frame displacement above which a frame is treated as severe motion blur.
+EDGE_SEVERE_BLUR_MOTION_THRESHOLD = 0.35
+# Consecutive blurred frames before emitting a warning.
+EDGE_BLUR_STREAK_TO_WARN = 2
+# Consecutive degraded/bad frames before emitting a partial-occlusion warning.
+EDGE_OCCLUSION_STREAK_TO_WARN = 6
+# Consecutive out-of-bounds frames before emitting a user-out-of-frame warning.
+EDGE_OUT_OF_FRAME_STREAK_TO_WARN = 5
+# Max normalized distance from shoulder midpoint before a hand is extraneous.
+EDGE_MAX_HAND_SHOULDER_DISTANCE = 0.85
+# Minimum usable-frame quality ratio required to classify a segment.
+EDGE_MIN_GOOD_FRAME_RATIO = 0.4
+# Minimum net hand displacement across a segment to rule out fidgeting/jitter.
+EDGE_MIN_NET_DISPLACEMENT = 0.04
+# Minimum interval (ms) between repeated warnings of the same code.
+EDGE_WARNING_COOLDOWN_MS = 2000
+
 # --- NLP layer / LLM (KAN-19) ---
 # Provider selected by the LLM_PROVIDER environment variable ("gemini" or "none").
 DEFAULT_LLM_PROVIDER = "gemini"

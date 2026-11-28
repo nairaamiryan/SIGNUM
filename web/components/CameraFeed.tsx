@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { LOW_LIGHT_LUMINANCE_THRESHOLD } from "@/lib/constants";
 import { useHolisticLandmarks, type LandmarkFrame } from "@/lib/useHolisticLandmarks";
 import type { LifecyclePhase, ServerState } from "@/lib/types";
 
@@ -32,6 +33,20 @@ interface CameraFeedProps {
 }
 
 const DETECTION_INTERVAL_MS = 100; // ~10 fps
+const LUMINANCE_CHECK_EVERY_N_FRAMES = 10;
+
+function sampleVideoLuminance(video: HTMLVideoElement, canvas: HTMLCanvasElement): number | null {
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx || video.videoWidth === 0 || video.videoHeight === 0) return null;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    let sum = 0;
+    const pixels = data.length / 4;
+    for (let i = 0; i < data.length; i += 4) {
+        sum += 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+    }
+    return pixels > 0 ? sum / pixels : null;
+}
 
 const STATE_BADGE_CLASS: Record<RecognitionState, string> = {
     idle: "bg-black/60 text-white",
@@ -56,6 +71,9 @@ export default function CameraFeed({
     const videoRef = useRef<HTMLVideoElement>(null);
     const streamRef = useRef<MediaStream | null>(null);
     const detectionIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const lumCanvasRef = useRef<HTMLCanvasElement | null>(null);
+    const frameCounterRef = useRef(0);
+    const poorIlluminationRef = useRef(false);
 
     const [state, setState] = useState<RecognitionState>("idle");
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -75,9 +93,24 @@ export default function CameraFeed({
             const video = videoRef.current;
             if (!video) return;
 
+            frameCounterRef.current += 1;
+            if (frameCounterRef.current % LUMINANCE_CHECK_EVERY_N_FRAMES === 0) {
+                if (!lumCanvasRef.current) {
+                    const c = document.createElement("canvas");
+                    c.width = 32;
+                    c.height = 18;
+                    lumCanvasRef.current = c;
+                }
+                const lum = sampleVideoLuminance(video, lumCanvasRef.current);
+                poorIlluminationRef.current = lum !== null && lum < LOW_LIGHT_LUMINANCE_THRESHOLD;
+            }
+
             const frame = detectFrame(video, performance.now());
             if (frame) {
-                onLandmarksDetected?.(frame);
+                onLandmarksDetected?.({
+                    ...frame,
+                    poorIllumination: poorIlluminationRef.current,
+                });
             }
         }, DETECTION_INTERVAL_MS);
     }, [detectFrame, onLandmarksDetected, stopDetection]);
@@ -95,6 +128,20 @@ export default function CameraFeed({
             });
 
             streamRef.current = stream;
+
+            // Detect unexpected hardware/permission camera disconnection.
+            for (const track of stream.getVideoTracks()) {
+                track.onended = () => {
+                    stopDetection();
+                    streamRef.current = null;
+                    if (videoRef.current) {
+                        videoRef.current.srcObject = null;
+                    }
+                    setState("error");
+                    setErrorMessage(t("camera.disconnected"));
+                    onStreamStopped?.();
+                };
+            }
 
             if (videoRef.current) {
                 videoRef.current.srcObject = stream;

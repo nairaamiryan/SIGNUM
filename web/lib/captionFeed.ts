@@ -74,6 +74,7 @@ export interface CaptionFeedState {
     unrecognized: boolean;
     ambiguous: boolean;
     ambiguousCandidates: CandidateSign[];
+    warning: string | null;
     error: string | null;
     nextPartialId: number;
 }
@@ -92,6 +93,7 @@ export const initialCaptionFeedState: CaptionFeedState = {
     unrecognized: false,
     ambiguous: false,
     ambiguousCandidates: [],
+    warning: null,
     error: null,
     nextPartialId: 1,
 };
@@ -110,6 +112,8 @@ export type CaptionFeedAction =
     | { type: "unrecognized" }
     | { type: "clear_unrecognized" }
     | { type: "clear_ambiguous" }
+    | { type: "warning"; code: string }
+    | { type: "clear_warning" }
     | { type: "restart" }
     | { type: "gloss_sequence"; message: ServerGlossSequenceMessage }
     | { type: "sentence"; message: ServerSentenceMessage }
@@ -201,6 +205,12 @@ export function captionFeedReducer(
         case "clear_ambiguous":
             return { ...state, ambiguous: false, ambiguousCandidates: [] };
 
+        case "warning":
+            return { ...state, warning: action.code };
+
+        case "clear_warning":
+            return { ...state, warning: null };
+
         case "restart":
             return {
                 ...state,
@@ -211,6 +221,7 @@ export function captionFeedReducer(
                 unrecognized: false,
                 ambiguous: false,
                 ambiguousCandidates: [],
+                warning: null,
                 finalizing: false,
                 error: null,
             };

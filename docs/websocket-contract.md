@@ -165,6 +165,19 @@ keeping the recognition pipeline and frontend synchronized.
 | `signerPositioned` | Whether the signer is positioned within the active camera area (`LIFECYCLE_ACTIVE_AREA_MARGIN`). |
 | `inactivityMs` | Elapsed inactivity duration in milliseconds since last active signing. |
 
+### `warning`
+Sent when a recoverable environmental or tracking edge case is detected
+(e.g. poor illumination, severe motion blur, partial occlusion, user out of
+frame, multiple people, extraneous hands, non-signing movement, or a
+recoverable service error).
+```json
+{
+  "type": "warning",
+  "code": "poor_illumination",
+  "recoverable": true
+}
+```
+
 ## Gloss Sequence Processing
 
 Between classification and the NLP/LLM layer, the service collects the

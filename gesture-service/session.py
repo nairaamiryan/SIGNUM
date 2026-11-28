@@ -10,7 +10,9 @@ import time
 from dataclasses import dataclass, field
 from enum import Enum
 
+from constants import SESSION_IDLE_TIMEOUT_SECONDS
 from continuous import ContinuousGestureProcessor
+from edge_cases import EdgeCaseGuard
 from gloss_sequence import GlossSequenceProcessor
 from landmark_buffer import LandmarkBuffer, LandmarkFrame
 from lifecycle import GestureLifecycleManager
@@ -40,6 +42,8 @@ class Session:
     continuous: ContinuousGestureProcessor = field(init=False)
     # Signing sequence lifecycle manager (KAN-26).
     lifecycle: GestureLifecycleManager = field(default_factory=GestureLifecycleManager)
+    # Edge-case detector and recovery guard (KAN-27).
+    edge_guard: EdgeCaseGuard = field(default_factory=EdgeCaseGuard)
 
     def __post_init__(self) -> None:
         # Gloss sequence processor bound to this session (KAN-18).
@@ -67,6 +71,7 @@ class Session:
         self.gloss_sequence.discard()
         self.last_segment_frames.clear()
         self.lifecycle.reset()
+        self.edge_guard.reset()
         self.state = RecognitionState.LISTENING
 
 
@@ -79,9 +84,19 @@ class SessionRegistry:
         self._sessions: dict[str, Session] = {}
 
     def get_or_create(self, session_id: str) -> Session:
+        self.cleanup_stale()
         if session_id not in self._sessions:
             self._sessions[session_id] = Session(session_id=session_id)
         return self._sessions[session_id]
+
+    def cleanup_stale(self, timeout_seconds: float = SESSION_IDLE_TIMEOUT_SECONDS) -> int:
+        """Remove sessions that have been idle longer than `timeout_seconds`."""
+        stale_ids = [
+            sid for sid, sess in self._sessions.items() if sess.is_stale(timeout_seconds)
+        ]
+        for sid in stale_ids:
+            self._sessions.pop(sid, None)
+        return len(stale_ids)
 
     def remove(self, session_id: str) -> None:
         self._sessions.pop(session_id, None)
