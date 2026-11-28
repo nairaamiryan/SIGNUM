@@ -24,6 +24,7 @@ export default function Home() {
         onUnrecognized: feed.onUnrecognized,
         onServerState: feed.onServerState,
         onLifecycle: feed.onLifecycle,
+        onWarning: feed.onWarning,
         onGlossSequence: feed.onGlossSequence,
         onSentence: feed.onSentence,
         onError: feed.onError,
@@ -56,6 +57,9 @@ export default function Home() {
                 rightHand: frame.rightHand,
                 face: frame.face,
                 pose: frame.pose,
+                multiplePeople: frame.multiplePeople,
+                extraneousHands: frame.extraneousHands,
+                poorIllumination: frame.poorIllumination,
             });
         },
         [send],
@@ -122,6 +126,7 @@ export default function Home() {
                             unrecognized={feed.unrecognized}
                             ambiguous={feed.ambiguous}
                             ambiguousCandidates={feed.ambiguousCandidates}
+                            warning={feed.warning}
                             error={feed.error}
                         />
                     </CardContent>

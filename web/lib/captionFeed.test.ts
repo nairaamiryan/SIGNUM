@@ -230,4 +230,15 @@ describe("recognition state", () => {
         expect(state.signerPositioned).toBe(true);
         expect(state.lifecycleReason).toBe("active_signing");
     });
+
+    it("tracks edge-case warnings and clears them on clear_warning or restart", () => {
+        const warned = run({ type: "warning", code: "poor_illumination" });
+        expect(warned.warning).toBe("poor_illumination");
+
+        const cleared = reduce(warned, { type: "clear_warning" });
+        expect(cleared.warning).toBeNull();
+
+        const restarted = reduce(warned, { type: "restart" });
+        expect(restarted.warning).toBeNull();
+    });
 });

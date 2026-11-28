@@ -2,7 +2,12 @@
 
 import { useCallback, useEffect, useReducer } from "react";
 import { captionFeedReducer, deriveRecognitionState, initialCaptionFeedState } from "./captionFeed";
-import { AMBIGUOUS_NOTICE_MS, PENDING_TIMEOUT_MS, UNRECOGNIZED_NOTICE_MS } from "./constants";
+import {
+    AMBIGUOUS_NOTICE_MS,
+    PENDING_TIMEOUT_MS,
+    UNRECOGNIZED_NOTICE_MS,
+    WARNING_NOTICE_MS,
+} from "./constants";
 import type {
     CandidateSign,
     ServerGlossSequenceMessage,
@@ -51,6 +56,7 @@ export function useCaptionFeed() {
         [],
     );
     const onError = useCallback((message: string) => dispatch({ type: "error", message }), []);
+    const onWarning = useCallback((code: string) => dispatch({ type: "warning", code }), []);
     const onFinalizeRequested = useCallback(() => dispatch({ type: "finalize_requested" }), []);
     const reset = useCallback(() => dispatch({ type: "reset" }), []);
 
@@ -70,6 +76,13 @@ export function useCaptionFeed() {
         const timer = setTimeout(() => dispatch({ type: "clear_ambiguous" }), AMBIGUOUS_NOTICE_MS);
         return () => clearTimeout(timer);
     }, [state.ambiguous]);
+
+    // Edge-case warnings disappear automatically once resolved.
+    useEffect(() => {
+        if (!state.warning) return;
+        const timer = setTimeout(() => dispatch({ type: "clear_warning" }), WARNING_NOTICE_MS);
+        return () => clearTimeout(timer);
+    }, [state.warning]);
 
     // Never wait forever for a sentence that does not come.
     const pendingCount = state.pending.length;
@@ -98,11 +111,13 @@ export function useCaptionFeed() {
         unrecognized: state.unrecognized,
         ambiguous: state.ambiguous,
         ambiguousCandidates: state.ambiguousCandidates,
+        warning: state.warning,
         error: state.error,
         onCaption,
         onUnrecognized,
         onServerState,
         onLifecycle,
+        onWarning,
         onGlossSequence,
         onSentence,
         onError,

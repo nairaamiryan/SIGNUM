@@ -57,6 +57,8 @@ export const CAPTION_HISTORY_LIMIT = 5; // completed captions kept on screen
 export const MAX_PARTIAL_GLOSSES = 30; // live signs kept for one utterance
 export const UNRECOGNIZED_NOTICE_MS = 3000; // how long "not recognized" stays
 export const AMBIGUOUS_NOTICE_MS = 4000; // how long "ambiguous sign" stays
+export const WARNING_NOTICE_MS = 4000; // how long an edge-case warning stays
+export const LOW_LIGHT_LUMINANCE_THRESHOLD = 35; // 0-255 mean luminance below which lighting is poor
 export const PENDING_TIMEOUT_MS = 15000; // stop waiting for a sentence after this
 export const UNCERTAIN_CONFIDENCE = 0.5; // below this a sign is shown as uncertain
 

@@ -45,6 +45,7 @@ export interface UseRecognitionSocketOptions {
     onUnrecognized?: () => void;
     onServerState?: (state: ServerState) => void;
     onLifecycle?: (message: ServerLifecycleMessage) => void;
+    onWarning?: (code: string, recoverable: boolean) => void;
     onGlossSequence?: (message: ServerGlossSequenceMessage) => void;
     onSentence?: (message: ServerSentenceMessage) => void;
     onError?: (message: string) => void;
@@ -64,6 +65,9 @@ export interface ClientLandmarksMessage {
     rightHand: LandmarkFrame["rightHand"];
     face: LandmarkFrame["face"];
     pose: LandmarkFrame["pose"];
+    multiplePeople?: boolean;
+    extraneousHands?: boolean;
+    poorIllumination?: boolean;
 }
 
 export interface ClientFinalizeMessage {
@@ -133,6 +137,12 @@ export interface ServerErrorMessage {
     message: string;
 }
 
+export interface ServerWarningMessage {
+    type: "warning";
+    code: string;
+    recoverable: boolean;
+}
+
 // One recognized sign of a finished utterance (docs/websocket-contract.md).
 export interface GlossToken {
     gloss: string;
@@ -178,6 +188,7 @@ export type ServerMessage =
     | ServerUnrecognizedMessage
     | ServerGlossSequenceMessage
     | ServerSentenceMessage
+    | ServerWarningMessage
     | ServerErrorMessage;
 
 // The signed-in user as the browser sees it.

@@ -23,6 +23,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from backend_log_handler import BackendLogHandler
 from classification import ClassificationResult, classify_segment
+from edge_cases import EdgeWarning, EdgeWarningCode
 from gloss_sequence import BOUNDARY_FINALIZE, BOUNDARY_PAUSE, GlossSequence
 from landmark_buffer import LandmarkFrame
 from lifecycle import LifecycleUpdate
@@ -82,6 +83,25 @@ async def send_lifecycle(
 ) -> None:
     """Send a `lifecycle` update to keep frontend and pipeline in sync (KAN-26)."""
     await websocket.send_text(json.dumps(update.to_message(session_id)))
+
+
+async def send_warning(websocket: WebSocket, warning: EdgeWarning) -> None:
+    """Send a recoverable edge-case warning to the frontend (KAN-27)."""
+    await websocket.send_text(json.dumps(warning.to_message()))
+
+
+async def recover_from_service_error(
+    websocket: WebSocket, session, session_id: str, context: str
+) -> None:
+    """Clean up invalid session state and inform the client on service failure."""
+    logger.exception("Service failure during %s for session %s", context, session_id)
+    session.reset()
+    await send_warning(websocket, EdgeWarning(EdgeWarningCode.SERVICE_ERROR, recoverable=True))
+    await websocket.send_text(
+        json.dumps({"type": "error", "message": f"Recognition service error during {context}"})
+    )
+    await send_state(websocket, session.state)
+    await send_lifecycle(websocket, session_id, session.lifecycle.current_update(changed=True))
 
 
 def build_caption_payload(result: ClassificationResult) -> dict:
@@ -247,65 +267,87 @@ async def recognition_socket(websocket: WebSocket):
 
                 session.buffer.add(frame)
 
-                # --- Continuous gesture processing (KAN-25) ---
-                # Feed the frame through the continuous pipeline. It
-                # handles sliding-window analysis, frame-drop interpolation,
-                # quality assessment, gesture spotting, classification,
-                # candidate queue management, and partial emissions.
-                streaming_results = session.continuous.feed(frame)
+                try:
+                    # --- Edge-case inspection (KAN-27) ---
+                    suppress_frame, edge_warnings = session.edge_guard.inspect_frame(
+                        frame,
+                        multiple_people=bool(message.get("multiplePeople", False)),
+                        extraneous_hands=bool(message.get("extraneousHands", False)),
+                        poor_illumination=bool(message.get("poorIllumination", False)),
+                    )
+                    for warn in edge_warnings:
+                        await send_warning(websocket, warn)
 
-                for sr in streaming_results:
-                    if sr.is_partial:
-                        # Partial (preview) result for the gesture still in progress
-                        await websocket.send_text(
-                            json.dumps(build_partial_caption_payload(sr.result))
-                        )
+                    if suppress_frame:
+                        # Avoid feeding corrupted frames (e.g. multiple people,
+                        # severe motion blur spike) into classification.
                         continue
 
-                    # Final result for a completed segment
-                    seg_result = sr.result
-                    segment = sr.candidate.segment
-                    session.last_segment_frames = list(segment.frames)
+                    # --- Continuous gesture processing (KAN-25) ---
+                    streaming_results = session.continuous.feed(frame)
 
-                    closed = session.gloss_sequence.add_prediction(
-                        seg_result,
-                        segment.frames[0].timestamp,
-                        segment.frames[-1].timestamp,
+                    for sr in streaming_results:
+                        valid_seg, seg_warn = session.edge_guard.validate_segment(
+                            sr.candidate.segment.frames,
+                            sr.candidate.quality_scores,
+                        )
+                        if not valid_seg:
+                            if seg_warn is not None:
+                                await send_warning(websocket, seg_warn)
+                            continue
+
+                        if sr.is_partial:
+                            await websocket.send_text(
+                                json.dumps(build_partial_caption_payload(sr.result))
+                            )
+                            continue
+
+                        # Final result for a completed segment
+                        seg_result = sr.result
+                        segment = sr.candidate.segment
+                        session.last_segment_frames = list(segment.frames)
+
+                        closed = session.gloss_sequence.add_prediction(
+                            seg_result,
+                            segment.frames[0].timestamp,
+                            segment.frames[-1].timestamp,
+                        )
+                        await emit_classification_result(
+                            websocket, session_id, seg_result, "Gesture classified"
+                        )
+                        if closed is not None:
+                            await publish_gloss_sequence(websocket, session, closed)
+
+                    # Utterance boundary: a pause with no gesture in progress.
+                    pause_closed = session.gloss_sequence.tick(
+                        frame.timestamp, busy=session.spotter.is_active
                     )
-                    await emit_classification_result(
-                        websocket, session_id, seg_result, "Gesture classified"
+                    if pause_closed is not None:
+                        await publish_gloss_sequence(websocket, session, pause_closed)
+
+                    # Lifecycle management (KAN-26): track start, progression,
+                    # inactivity, and automatic sentence finalization.
+                    lifecycle_update = session.lifecycle.on_frame(
+                        frame,
+                        spotter_active=session.spotter.is_active,
+                        has_pending_glosses=session.gloss_sequence.has_pending,
                     )
-                    if closed is not None:
-                        await publish_gloss_sequence(websocket, session, closed)
+                    if lifecycle_update.changed:
+                        await send_lifecycle(websocket, session_id, lifecycle_update)
 
-                # Utterance boundary: a pause with no gesture in progress.
-                pause_closed = session.gloss_sequence.tick(
-                    frame.timestamp, busy=session.spotter.is_active
-                )
-                if pause_closed is not None:
-                    await publish_gloss_sequence(websocket, session, pause_closed)
-
-                # Lifecycle management (KAN-26): track start, progression,
-                # inactivity, and automatic sentence finalization.
-                lifecycle_update = session.lifecycle.on_frame(
-                    frame,
-                    spotter_active=session.spotter.is_active,
-                    has_pending_glosses=session.gloss_sequence.has_pending,
-                )
-                if lifecycle_update.changed:
-                    await send_lifecycle(websocket, session_id, lifecycle_update)
-
-                if (
-                    pause_closed is None
-                    and lifecycle_update.should_finalize
-                    and session.gloss_sequence.has_pending
-                ):
-                    auto_closed = session.gloss_sequence.close(BOUNDARY_PAUSE)
-                    if auto_closed is not None:
-                        await publish_gloss_sequence(websocket, session, auto_closed)
-                    await send_lifecycle(
-                        websocket, session_id, session.lifecycle.on_finalized()
-                    )
+                    if (
+                        pause_closed is None
+                        and lifecycle_update.should_finalize
+                        and session.gloss_sequence.has_pending
+                    ):
+                        auto_closed = session.gloss_sequence.close(BOUNDARY_PAUSE)
+                        if auto_closed is not None:
+                            await publish_gloss_sequence(websocket, session, auto_closed)
+                        await send_lifecycle(
+                            websocket, session_id, session.lifecycle.on_finalized()
+                        )
+                except Exception:
+                    await recover_from_service_error(websocket, session, session_id, "landmarks")
 
             elif msg_type == "repeat":
                 if not session.last_segment_frames:
@@ -354,34 +396,53 @@ async def recognition_socket(websocket: WebSocket):
                 session.state = RecognitionState.PROCESSING
                 await send_state(websocket, session.state)
 
-                # Close the segment still in progress; fall back to the buffer if none.
-                flush_results = session.continuous.flush()
-                if flush_results:
-                    # Use the last flushed result
-                    last_sr = flush_results[-1]
-                    final_frames = list(last_sr.candidate.segment.frames)
-                else:
-                    final_frames = session.buffer.frames()
-                session.last_segment_frames = list(final_frames)
-                result = classify_segment(final_frames)
-                full_sequence = session.gloss_sequence.add_prediction(
-                    result, final_frames[0].timestamp, final_frames[-1].timestamp
-                )
+                try:
+                    # Close the segment still in progress; fall back to the buffer if none.
+                    flush_results = session.continuous.flush()
+                    if flush_results:
+                        # Use the last flushed result
+                        last_sr = flush_results[-1]
+                        final_frames = list(last_sr.candidate.segment.frames)
+                    else:
+                        final_frames = session.buffer.frames()
 
-                await emit_classification_result(
-                    websocket, session_id, result, "Finalize classified"
-                )
+                    valid_seg, seg_warn = session.edge_guard.validate_segment(final_frames)
+                    if not valid_seg:
+                        if seg_warn is not None:
+                            await send_warning(websocket, seg_warn)
+                        await websocket.send_text(json.dumps({"type": "unrecognized"}))
+                        session.reset()
+                        await send_state(websocket, session.state)
+                        await send_lifecycle(
+                            websocket, session_id, session.lifecycle.on_finalized()
+                        )
+                        continue
 
-                # Finalize ends the utterance: send the structured gloss sequence.
-                for finished in (full_sequence, session.gloss_sequence.close(BOUNDARY_FINALIZE)):
-                    if finished is not None:
-                        await publish_gloss_sequence(websocket, session, finished)
+                    session.last_segment_frames = list(final_frames)
+                    result = classify_segment(final_frames)
+                    full_sequence = session.gloss_sequence.add_prediction(
+                        result, final_frames[0].timestamp, final_frames[-1].timestamp
+                    )
 
-                session.reset()
-                await send_state(websocket, session.state)
-                await send_lifecycle(
-                    websocket, session_id, session.lifecycle.on_finalized()
-                )
+                    await emit_classification_result(
+                        websocket, session_id, result, "Finalize classified"
+                    )
+
+                    # Finalize ends the utterance: send the structured gloss sequence.
+                    for finished in (
+                        full_sequence,
+                        session.gloss_sequence.close(BOUNDARY_FINALIZE),
+                    ):
+                        if finished is not None:
+                            await publish_gloss_sequence(websocket, session, finished)
+
+                    session.reset()
+                    await send_state(websocket, session.state)
+                    await send_lifecycle(
+                        websocket, session_id, session.lifecycle.on_finalized()
+                    )
+                except Exception:
+                    await recover_from_service_error(websocket, session, session_id, "finalize")
 
             else:
                 logger.warning("Unknown message type: %s", msg_type)

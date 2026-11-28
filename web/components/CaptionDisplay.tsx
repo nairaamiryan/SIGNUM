@@ -18,6 +18,7 @@ interface CaptionDisplayProps {
     unrecognized: boolean;
     ambiguous: boolean;
     ambiguousCandidates: CandidateSign[];
+    warning?: string | null;
     error: string | null;
 }
 
@@ -54,13 +55,20 @@ export default function CaptionDisplay({
     unrecognized,
     ambiguous,
     ambiguousCandidates,
+    warning,
     error,
 }: CaptionDisplayProps) {
     const { t } = useTranslation();
 
     const [latest, ...earlier] = captions;
     const showPlaceholder =
-        partials.length === 0 && !generating && !unrecognized && !ambiguous && !error && !latest;
+        partials.length === 0 &&
+        !generating &&
+        !unrecognized &&
+        !ambiguous &&
+        !warning &&
+        !error &&
+        !latest;
 
     return (
         <div className="flex w-full flex-col gap-3">
@@ -72,6 +80,13 @@ export default function CaptionDisplay({
                             <span className="font-semibold">{t("state.error")}:</span> {error}
                         </span>
                     </AlertDescription>
+                </Alert>
+            )}
+
+            {warning && (
+                <Alert variant="warning" role="status">
+                    <TriangleAlert />
+                    <AlertDescription>{t(`warnings.${warning}`)}</AlertDescription>
                 </Alert>
             )}
 
