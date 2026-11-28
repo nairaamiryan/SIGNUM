@@ -209,5 +209,25 @@ describe("recognition state", () => {
         const restarted = reduce(state, { type: "restart" });
         expect(restarted.partials).toEqual([]);
         expect(restarted.ambiguous).toBe(false);
+        expect(restarted.lifecyclePhase).toBe("terminated");
+    });
+
+    it("synchronizes lifecycle phase and signer positioning from server events", () => {
+        const state = run({
+            type: "lifecycle",
+            message: {
+                type: "lifecycle",
+                sessionId: "s",
+                phase: "signing",
+                reason: "active_signing",
+                signerPresent: true,
+                signerPositioned: true,
+                inactivityMs: 0,
+            },
+        });
+        expect(state.lifecyclePhase).toBe("signing");
+        expect(state.signerPresent).toBe(true);
+        expect(state.signerPositioned).toBe(true);
+        expect(state.lifecycleReason).toBe("active_signing");
     });
 });

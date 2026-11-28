@@ -7,7 +7,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useHolisticLandmarks, type LandmarkFrame } from "@/lib/useHolisticLandmarks";
-import type { ServerState } from "@/lib/types";
+import type { LifecyclePhase, ServerState } from "@/lib/types";
 
 export type RecognitionState = "idle" | "listening" | "processing" | "error";
 
@@ -27,6 +27,8 @@ interface CameraFeedProps {
      * camera is on it decides the badge and whether Finalize is enabled.
      */
     status?: ServerState;
+    /** Shared signing-sequence lifecycle phase from the recognition pipeline (KAN-26). */
+    lifecyclePhase?: LifecyclePhase;
 }
 
 const DETECTION_INTERVAL_MS = 100; // ~10 fps
@@ -46,6 +48,7 @@ export default function CameraFeed({
     onRepeat,
     onRestart,
     status,
+    lifecyclePhase,
 }: CameraFeedProps) {
     const { t } = useTranslation();
     const { initialize, detectFrame, close, loadError } = useHolisticLandmarks();
@@ -149,6 +152,15 @@ export default function CameraFeed({
         error: t("state.error"),
     };
 
+    const lifecycleLabel: Record<LifecyclePhase, string> = {
+        idle: t("lifecycle.idle"),
+        ready: t("lifecycle.ready"),
+        signing: t("lifecycle.signing"),
+        inactive: t("lifecycle.inactive"),
+        finalizing: t("lifecycle.finalizing"),
+        terminated: t("lifecycle.terminated"),
+    };
+
     return (
         <div className="flex flex-col gap-4">
             <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-black">
@@ -161,6 +173,15 @@ export default function CameraFeed({
                 >
                     {modelLoading ? t("state.processing") : stateLabel[displayState]}
                 </Badge>
+
+                {displayState !== "idle" && lifecyclePhase && (
+                    <Badge
+                        variant="secondary"
+                        className="absolute top-3 right-3 bg-black/60 px-3 py-1 text-xs text-white"
+                    >
+                        {lifecycleLabel[lifecyclePhase]}
+                    </Badge>
+                )}
             </div>
 
             {(errorMessage || loadError) && (

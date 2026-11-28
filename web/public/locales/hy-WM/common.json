@@ -8,6 +8,14 @@
     "processing": "Կը մշակուի...",
     "error": "Սխալ"
   },
+  "lifecycle": {
+    "idle": "Դիրքաւորուեցէք կադրին մէջ",
+    "ready": "Պատրաստ է",
+    "signing": "Կը ցուցադրէ",
+    "inactive": "Դադար",
+    "finalizing": "Կ՚աւարտի…",
+    "terminated": "Ընդհատուած է"
+  },
   "controls": {
     "startCamera": "Միացնել խցիկը",
     "stopCamera": "Անջատել խցիկը",

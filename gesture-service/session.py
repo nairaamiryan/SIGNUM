@@ -13,6 +13,7 @@ from enum import Enum
 from continuous import ContinuousGestureProcessor
 from gloss_sequence import GlossSequenceProcessor
 from landmark_buffer import LandmarkBuffer, LandmarkFrame
+from lifecycle import GestureLifecycleManager
 from spotting import HeuristicGestureSpotter
 
 
@@ -37,6 +38,8 @@ class Session:
     gloss_sequence: GlossSequenceProcessor = field(init=False)
     # Continuous gesture processing pipeline (KAN-25).
     continuous: ContinuousGestureProcessor = field(init=False)
+    # Signing sequence lifecycle manager (KAN-26).
+    lifecycle: GestureLifecycleManager = field(default_factory=GestureLifecycleManager)
 
     def __post_init__(self) -> None:
         # Gloss sequence processor bound to this session (KAN-18).
@@ -63,6 +66,7 @@ class Session:
         self.continuous.reset()  # also resets the shared spotter (KAN-25)
         self.gloss_sequence.discard()
         self.last_segment_frames.clear()
+        self.lifecycle.reset()
         self.state = RecognitionState.LISTENING
 
 

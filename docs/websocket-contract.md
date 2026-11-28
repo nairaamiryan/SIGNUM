@@ -132,7 +132,7 @@ superseded by a full `caption` when the gesture segment completes.
 
 Partial captions are emitted at most once every
 `CONTINUOUS_PARTIAL_EMIT_INTERVAL_MS` (default 500ms). They are part of
-the continuous processing pipeline (KAN-25) and require no action from
+the continuous processing pipeline and require no action from
 the frontend other than displaying them. When the gesture completes, a
 normal `caption` message replaces the partial.
 
@@ -141,6 +141,29 @@ Sent for any server-side error (e.g. malformed input, internal failure).
 ```json
 { "type": "error", "message": "Human-readable error description" }
 ```
+
+### `lifecycle`
+Sent when the signing-sequence lifecycle transitions between phases,
+keeping the recognition pipeline and frontend synchronized.
+```json
+{
+  "type": "lifecycle",
+  "sessionId": "a1b2c3d4-...",
+  "phase": "signing",
+  "reason": "active_signing",
+  "signerPresent": true,
+  "signerPositioned": true,
+  "inactivityMs": 0
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `phase` | `idle` (no signer positioned), `ready` (positioned in active camera area), `signing` (active signing/progression), `inactive` (inactivity period / neutral posture), `finalizing` (sentence finalization), or `terminated` (manual termination via `restart`). |
+| `reason` | Machine-readable transition reason (e.g., `signer_positioned`, `active_signing`, `inactivity_period`, `neutral_posture`, `inactivity_timeout`, `manual_finalize`, `manual_termination`). |
+| `signerPresent` | Whether any hand or upper-body pose landmarks are detected. |
+| `signerPositioned` | Whether the signer is positioned within the active camera area (`LIFECYCLE_ACTIVE_AREA_MARGIN`). |
+| `inactivityMs` | Elapsed inactivity duration in milliseconds since last active signing. |
 
 ## Gloss Sequence Processing
 

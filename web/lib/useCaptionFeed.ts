@@ -6,6 +6,7 @@ import { AMBIGUOUS_NOTICE_MS, PENDING_TIMEOUT_MS, UNRECOGNIZED_NOTICE_MS } from 
 import type {
     CandidateSign,
     ServerGlossSequenceMessage,
+    ServerLifecycleMessage,
     ServerSentenceMessage,
     ServerState,
 } from "./types";
@@ -35,6 +36,10 @@ export function useCaptionFeed() {
     const onRestartRequested = useCallback(() => dispatch({ type: "restart" }), []);
     const onServerState = useCallback(
         (serverState: ServerState) => dispatch({ type: "server_state", state: serverState }),
+        [],
+    );
+    const onLifecycle = useCallback(
+        (message: ServerLifecycleMessage) => dispatch({ type: "lifecycle", message }),
         [],
     );
     const onGlossSequence = useCallback(
@@ -83,6 +88,9 @@ export function useCaptionFeed() {
 
     return {
         status: deriveRecognitionState(state),
+        lifecyclePhase: state.lifecyclePhase,
+        signerPresent: state.signerPresent,
+        signerPositioned: state.signerPositioned,
         partials: state.partials,
         captions: state.captions,
         /** A sentence is being generated for an utterance that has ended. */
@@ -94,6 +102,7 @@ export function useCaptionFeed() {
         onCaption,
         onUnrecognized,
         onServerState,
+        onLifecycle,
         onGlossSequence,
         onSentence,
         onError,
