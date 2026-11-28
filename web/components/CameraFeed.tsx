@@ -1,7 +1,11 @@
 "use client";
 
 import { useRef, useState, useCallback, useEffect } from "react";
+import { Camera, CameraOff, CheckCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { useHolisticLandmarks, type LandmarkFrame } from "@/lib/useHolisticLandmarks";
 import type { ServerState } from "@/lib/types";
 
@@ -24,10 +28,10 @@ interface CameraFeedProps {
 const DETECTION_INTERVAL_MS = 100; // ~10 fps
 
 const STATE_BADGE_CLASS: Record<RecognitionState, string> = {
-    idle: "bg-black/60",
-    listening: "bg-emerald-600/80",
-    processing: "bg-amber-500/90",
-    error: "bg-red-600/90",
+    idle: "bg-black/60 text-white",
+    listening: "bg-emerald-600/90 text-white",
+    processing: "bg-amber-500/95 text-black",
+    error: "bg-red-600/90 text-white",
 };
 
 export default function CameraFeed({
@@ -140,47 +144,45 @@ export default function CameraFeed({
     };
 
     return (
-        <div className="flex flex-col items-center gap-4">
-            <div className="relative w-full max-w-2xl aspect-video bg-black rounded-lg overflow-hidden">
-                <video ref={videoRef} className="w-full h-full object-cover" muted playsInline />
+        <div className="flex flex-col gap-4">
+            <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-black">
+                <video ref={videoRef} className="h-full w-full object-cover" muted playsInline />
 
-                <div
+                <Badge
                     role="status"
                     aria-live="polite"
-                    className={`absolute top-2 left-2 px-3 py-1 rounded-full text-sm font-medium text-white ${STATE_BADGE_CLASS[modelLoading ? "processing" : displayState]}`}
+                    className={`absolute top-3 left-3 border-transparent px-3 py-1 text-sm ${STATE_BADGE_CLASS[modelLoading ? "processing" : displayState]}`}
                 >
                     {modelLoading ? t("state.processing") : stateLabel[displayState]}
-                </div>
+                </Badge>
             </div>
 
             {(errorMessage || loadError) && (
-                <p className="text-red-500 text-sm">{errorMessage || loadError}</p>
+                <Alert variant="destructive">
+                    <AlertDescription>{errorMessage || loadError}</AlertDescription>
+                </Alert>
             )}
 
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
                 {state === "idle" || state === "error" ? (
-                    <button
-                        onClick={startCamera}
-                        disabled={modelLoading}
-                        className="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
+                    <Button onClick={startCamera} disabled={modelLoading}>
+                        <Camera />
                         {t("controls.startCamera")}
-                    </button>
+                    </Button>
                 ) : (
                     <>
-                        <button
+                        <Button
+                            variant="success"
                             onClick={finalizeRecognition}
                             disabled={displayState !== "listening"}
-                            className="px-4 py-2 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
                         >
+                            <CheckCheck />
                             {t("controls.finalize")}
-                        </button>
-                        <button
-                            onClick={stopCamera}
-                            className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 transition"
-                        >
+                        </Button>
+                        <Button variant="destructive" onClick={stopCamera}>
+                            <CameraOff />
                             {t("controls.stopCamera")}
-                        </button>
+                        </Button>
                     </>
                 )}
             </div>

@@ -118,3 +118,16 @@ export type ServerMessage =
     | ServerGlossSequenceMessage
     | ServerSentenceMessage
     | ServerErrorMessage;
+
+// The signed-in user as the browser sees it.
+export interface AuthUser {
+    id: string;
+    email: string;
+    name: string | null;
+    avatarUrl: string | null;
+}
+
+export interface AuthSession {
+    token: string;
+    user: AuthUser;
+}

@@ -5,6 +5,11 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
     ...nextVitals,
     ...nextTs,
+    // Sequelize CLI reads these CommonJS files, so they have to use require().
+    {
+        files: ["db/**/*.js", ".sequelizerc"],
+        rules: { "@typescript-eslint/no-require-imports": "off" },
+    },
     // Override default ignores of eslint-config-next.
     globalIgnores([
         // Default ignores of eslint-config-next:

@@ -1,9 +1,12 @@
 "use client";
 
 import { useCallback } from "react";
+import { TriangleAlert } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import CameraFeed from "@/components/CameraFeed";
 import CaptionDisplay from "@/components/CaptionDisplay";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCaptionFeed } from "@/lib/useCaptionFeed";
 import { useRecognitionSocket } from "@/lib/useRecognitionSocket";
 import { ConnectionState, ServerState } from "@/lib/constants";
@@ -65,30 +68,50 @@ export default function Home() {
     }, [onFinalizeRequested, send]);
 
     return (
-        <main className="min-h-screen flex flex-col items-center justify-center p-8 gap-6">
-            <h1 className="text-2xl font-bold">{t("app.title")}</h1>
-
-            <CameraFeed
-                status={status}
-                onStreamReady={handleStreamReady}
-                onStreamStopped={handleStreamStopped}
-                onLandmarksDetected={handleLandmarksDetected}
-                onFinalize={handleFinalize}
-            />
+        <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-8">
+            <section className="flex flex-col gap-2 text-center">
+                <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{t("app.title")}</h1>
+                <p className="mx-auto max-w-2xl text-muted-foreground">{t("home.description")}</p>
+            </section>
 
             {connectionState === ConnectionState.RECONNECTING && (
-                <p role="status" className="text-amber-500 text-sm">
-                    {t("connection.reconnecting")}
-                </p>
+                <Alert variant="warning" role="status">
+                    <TriangleAlert />
+                    <AlertDescription>{t("connection.reconnecting")}</AlertDescription>
+                </Alert>
             )}
 
-            <CaptionDisplay
-                partials={feed.partials}
-                captions={feed.captions}
-                generating={feed.generating}
-                unrecognized={feed.unrecognized}
-                error={feed.error}
-            />
+            <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>{t("home.cameraTitle")}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <CameraFeed
+                            status={status}
+                            onStreamReady={handleStreamReady}
+                            onStreamStopped={handleStreamStopped}
+                            onLandmarksDetected={handleLandmarksDetected}
+                            onFinalize={handleFinalize}
+                        />
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle>{t("home.captionsTitle")}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <CaptionDisplay
+                            partials={feed.partials}
+                            captions={feed.captions}
+                            generating={feed.generating}
+                            unrecognized={feed.unrecognized}
+                            error={feed.error}
+                        />
+                    </CardContent>
+                </Card>
+            </div>
         </main>
     );
 }

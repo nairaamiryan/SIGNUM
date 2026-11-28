@@ -1,6 +1,9 @@
 "use client";
 
+import { TriangleAlert, OctagonAlert } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import type { CaptionEntry, PartialGloss } from "@/lib/captionFeed";
 import { SentenceStatus, UNCERTAIN_CONFIDENCE } from "@/lib/constants";
 import type { SentenceStatus as SentenceStatusType } from "@/lib/types";
@@ -25,18 +28,16 @@ const KNOWN_WARNINGS = [
     "incomplete",
 ] as const;
 
-const STATUS_BADGE_CLASS: Record<SentenceStatusType, string> = {
-    [SentenceStatus.OK]:
-        "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300",
-    [SentenceStatus.PARTIAL]:
-        "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
-    [SentenceStatus.FALLBACK]: "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
+const STATUS_BADGE_VARIANT: Record<SentenceStatusType, "success" | "warning" | "secondary"> = {
+    [SentenceStatus.OK]: "success",
+    [SentenceStatus.PARTIAL]: "warning",
+    [SentenceStatus.FALLBACK]: "secondary",
 };
 
 const CARD_BORDER_CLASS: Record<SentenceStatusType, string> = {
-    [SentenceStatus.OK]: "border-emerald-300 dark:border-emerald-800",
-    [SentenceStatus.PARTIAL]: "border-amber-300 dark:border-amber-800",
-    [SentenceStatus.FALLBACK]: "border-zinc-300 dark:border-zinc-700",
+    [SentenceStatus.OK]: "border-success/60",
+    [SentenceStatus.PARTIAL]: "border-warning/70",
+    [SentenceStatus.FALLBACK]: "border-border",
 };
 
 function percent(confidence: number): string {
@@ -57,44 +58,43 @@ export default function CaptionDisplay({
         partials.length === 0 && !generating && !unrecognized && !error && !latest;
 
     return (
-        <div className="w-full max-w-2xl flex flex-col gap-3">
+        <div className="flex w-full flex-col gap-3">
             {error && (
-                <div
-                    role="alert"
-                    className="rounded-lg border border-red-300 dark:border-red-900 bg-red-50 dark:bg-red-950/40 px-4 py-3 text-sm text-red-700 dark:text-red-300"
-                >
-                    <span className="font-semibold">⛔ {t("state.error")}:</span> {error}
-                </div>
+                <Alert variant="destructive">
+                    <OctagonAlert />
+                    <AlertDescription>
+                        <span>
+                            <span className="font-semibold">{t("state.error")}:</span> {error}
+                        </span>
+                    </AlertDescription>
+                </Alert>
             )}
 
             {unrecognized && (
-                <p
-                    role="status"
-                    className="rounded-lg border border-amber-300 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/40 px-4 py-3 text-sm font-medium text-amber-700 dark:text-amber-300"
-                >
-                    ⚠ {t("caption.unrecognized")}
-                </p>
+                <Alert variant="warning" role="status">
+                    <TriangleAlert />
+                    <AlertDescription>{t("caption.unrecognized")}</AlertDescription>
+                </Alert>
             )}
 
             {/* Live area: partial results of the utterance in progress. */}
             {(partials.length > 0 || generating) && (
-                <div
-                    aria-live="polite"
-                    className="rounded-lg border border-dashed border-zinc-300 dark:border-zinc-700 px-4 py-3"
-                >
+                <div aria-live="polite" className="rounded-lg border border-dashed px-4 py-3">
                     {partials.length > 0 && (
                         <>
-                            <p className="text-xs text-zinc-500 mb-2">{t("caption.partial")}</p>
+                            <p className="mb-2 text-xs text-muted-foreground">
+                                {t("caption.partial")}
+                            </p>
                             <ul className="flex flex-wrap gap-2">
                                 {partials.map((partial) => {
                                     const uncertain = partial.confidence < UNCERTAIN_CONFIDENCE;
                                     return (
                                         <li
                                             key={partial.id}
-                                            className={`rounded-full px-3 py-1 text-sm border ${
+                                            className={`rounded-full border px-3 py-1 text-sm ${
                                                 uncertain
-                                                    ? "border-amber-300 text-amber-700 dark:border-amber-800 dark:text-amber-300"
-                                                    : "border-zinc-300 text-zinc-800 dark:border-zinc-600 dark:text-zinc-100"
+                                                    ? "border-warning/70 text-warning-foreground dark:text-warning"
+                                                    : "text-foreground"
                                             }`}
                                             title={
                                                 uncertain
@@ -107,7 +107,7 @@ export default function CaptionDisplay({
                                             }
                                         >
                                             {partial.gloss}
-                                            <span className="ml-2 text-xs text-zinc-500">
+                                            <span className="ml-2 text-xs text-muted-foreground">
                                                 {percent(partial.confidence)}
                                             </span>
                                         </li>
@@ -117,7 +117,7 @@ export default function CaptionDisplay({
                         </>
                     )}
                     {generating && (
-                        <p className="text-sm text-zinc-500 animate-pulse mt-1">
+                        <p className="mt-1 animate-pulse text-sm text-muted-foreground">
                             {t("caption.generating")}
                         </p>
                     )}
@@ -125,24 +125,22 @@ export default function CaptionDisplay({
             )}
 
             {showPlaceholder && (
-                <div className="min-h-[72px] rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 px-4 py-3 flex items-center">
-                    <p className="text-zinc-400 text-sm">{t("caption.placeholder")}</p>
+                <div className="flex min-h-[72px] items-center rounded-lg border bg-muted/40 px-4 py-3">
+                    <p className="text-sm text-muted-foreground">{t("caption.placeholder")}</p>
                 </div>
             )}
 
             {/* Completed caption: the final sentence. */}
             {latest && (
                 <div
-                    className={`rounded-lg border-2 bg-zinc-50 dark:bg-zinc-900 px-4 py-3 ${CARD_BORDER_CLASS[latest.status]}`}
+                    className={`rounded-lg border-2 bg-muted/40 px-4 py-3 ${CARD_BORDER_CLASS[latest.status]}`}
                 >
-                    <div className="flex items-center gap-2 mb-2">
-                        <span
-                            className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE_CLASS[latest.status]}`}
-                        >
+                    <div className="mb-2 flex items-center gap-2">
+                        <Badge variant={STATUS_BADGE_VARIANT[latest.status]}>
                             {t(`caption.status.${latest.status}`)}
-                        </span>
+                        </Badge>
                         {latest.confidence !== null && (
-                            <span className="text-xs text-zinc-500">
+                            <span className="text-xs text-muted-foreground">
                                 {t("caption.confidence", {
                                     value: (latest.confidence * 100).toFixed(0),
                                 })}
@@ -153,19 +151,21 @@ export default function CaptionDisplay({
                     <p
                         className={`text-lg ${
                             latest.status === SentenceStatus.FALLBACK
-                                ? "text-zinc-600 dark:text-zinc-300"
-                                : "text-zinc-900 dark:text-zinc-50"
+                                ? "text-muted-foreground"
+                                : "text-foreground"
                         }`}
                     >
                         {latest.text}
                     </p>
 
                     {latest.status === SentenceStatus.FALLBACK && (
-                        <p className="text-xs text-zinc-500 mt-1">{t("caption.fallbackHint")}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                            {t("caption.fallbackHint")}
+                        </p>
                     )}
 
                     {latest.glosses.length > 0 && latest.status !== SentenceStatus.FALLBACK && (
-                        <p className="text-xs text-zinc-500 mt-1">
+                        <p className="mt-1 text-xs text-muted-foreground">
                             {t("caption.gloss")}: {latest.glosses.join(" → ")}
                         </p>
                     )}
@@ -173,7 +173,7 @@ export default function CaptionDisplay({
                     {KNOWN_WARNINGS.filter((w) => latest.warnings.includes(w)).map((warning) => (
                         <p
                             key={warning}
-                            className="text-xs text-amber-700 dark:text-amber-400 mt-1"
+                            className="mt-1 text-xs text-warning-foreground dark:text-warning"
                         >
                             ⚠ {t(`caption.warnings.${warning}`)}
                         </p>
@@ -183,18 +183,19 @@ export default function CaptionDisplay({
 
             {earlier.length > 0 && (
                 <div>
-                    <p className="text-xs text-zinc-500 mb-1">{t("caption.history")}</p>
+                    <p className="mb-1 text-xs text-muted-foreground">{t("caption.history")}</p>
                     <ul className="flex flex-col gap-1">
                         {earlier.map((caption) => (
                             <li
                                 key={caption.id}
-                                className="text-sm text-zinc-600 dark:text-zinc-400 flex items-center gap-2"
+                                className="flex items-center gap-2 text-sm text-muted-foreground"
                             >
-                                <span
-                                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${STATUS_BADGE_CLASS[caption.status]}`}
+                                <Badge
+                                    variant={STATUS_BADGE_VARIANT[caption.status]}
+                                    className="px-2 py-0 text-[10px]"
                                 >
                                     {t(`caption.status.${caption.status}`)}
-                                </span>
+                                </Badge>
                                 <span>{caption.text}</span>
                             </li>
                         ))}

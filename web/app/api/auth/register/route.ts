@@ -1,10 +1,11 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { User } from "@/lib/db";
 import { signToken } from "@/lib/auth";
 import { registerSchema } from "@/lib/schemas";
 import { ERROR_MESSAGES } from "@/lib/constants";
 import { logger } from "@/lib/logger";
+import { toPublicUser, type UserRecord } from "@/lib/user-dto";
 
 export async function POST(req: Request) {
     const parsed = registerSchema.safeParse(await req.json());
@@ -26,11 +27,8 @@ export async function POST(req: Request) {
         name,
         passwordHash: await bcrypt.hash(password, 10),
     });
-    const u = user.get() as { id: string; email: string; name: string | null };
+    const u = user.get() as UserRecord;
 
     logger.info("APP", `User ${u.id} registered`, { audit: true });
-    return NextResponse.json(
-        { token: signToken(u.id), user: { id: u.id, email: u.email, name: u.name } },
-        { status: 201 },
-    );
+    return NextResponse.json({ token: signToken(u.id), user: toPublicUser(u) }, { status: 201 });
 }
