@@ -132,7 +132,7 @@ superseded by a full `caption` when the gesture segment completes.
 
 Partial captions are emitted at most once every
 `CONTINUOUS_PARTIAL_EMIT_INTERVAL_MS` (default 500ms). They are part of
-the continuous processing pipeline (KAN-25) and require no action from
+the continuous processing pipeline and require no action from
 the frontend other than displaying them. When the gesture completes, a
 normal `caption` message replaces the partial.
 
@@ -143,7 +143,7 @@ Sent for any server-side error (e.g. malformed input, internal failure).
 ```
 
 ### `lifecycle`
-Sent when the signing-sequence lifecycle transitions between phases (KAN-26),
+Sent when the signing-sequence lifecycle transitions between phases,
 keeping the recognition pipeline and frontend synchronized.
 ```json
 {
