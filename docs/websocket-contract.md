@@ -142,6 +142,29 @@ Sent for any server-side error (e.g. malformed input, internal failure).
 { "type": "error", "message": "Human-readable error description" }
 ```
 
+### `lifecycle`
+Sent when the signing-sequence lifecycle transitions between phases (KAN-26),
+keeping the recognition pipeline and frontend synchronized.
+```json
+{
+  "type": "lifecycle",
+  "sessionId": "a1b2c3d4-...",
+  "phase": "signing",
+  "reason": "active_signing",
+  "signerPresent": true,
+  "signerPositioned": true,
+  "inactivityMs": 0
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `phase` | `idle` (no signer positioned), `ready` (positioned in active camera area), `signing` (active signing/progression), `inactive` (inactivity period / neutral posture), `finalizing` (sentence finalization), or `terminated` (manual termination via `restart`). |
+| `reason` | Machine-readable transition reason (e.g., `signer_positioned`, `active_signing`, `inactivity_period`, `neutral_posture`, `inactivity_timeout`, `manual_finalize`, `manual_termination`). |
+| `signerPresent` | Whether any hand or upper-body pose landmarks are detected. |
+| `signerPositioned` | Whether the signer is positioned within the active camera area (`LIFECYCLE_ACTIVE_AREA_MARGIN`). |
+| `inactivityMs` | Elapsed inactivity duration in milliseconds since last active signing. |
+
 ## Gloss Sequence Processing
 
 Between classification and the NLP/LLM layer, the service collects the

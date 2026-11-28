@@ -2,6 +2,7 @@ import type { LandmarkFrame } from "./useHolisticLandmarks";
 import type {
     ConnectionState as ConnectionStateMap,
     GlossStatus as GlossStatusMap,
+    LifecyclePhase as LifecyclePhaseMap,
     SentenceStatus as SentenceStatusMap,
     ServerState as ServerStateMap,
 } from "./constants";
@@ -11,6 +12,9 @@ export type ConnectionState = (typeof ConnectionStateMap)[keyof typeof Connectio
 
 // Derived from the ServerState constant map in constants.ts.
 export type ServerState = (typeof ServerStateMap)[keyof typeof ServerStateMap];
+
+// Shared signing lifecycle phase (KAN-26).
+export type LifecyclePhase = (typeof LifecyclePhaseMap)[keyof typeof LifecyclePhaseMap];
 
 // Status of a generated sentence (NLP layer), from the SentenceStatus constant map.
 export type SentenceStatus = (typeof SentenceStatusMap)[keyof typeof SentenceStatusMap];
@@ -40,6 +44,7 @@ export interface UseRecognitionSocketOptions {
     ) => void;
     onUnrecognized?: () => void;
     onServerState?: (state: ServerState) => void;
+    onLifecycle?: (message: ServerLifecycleMessage) => void;
     onGlossSequence?: (message: ServerGlossSequenceMessage) => void;
     onSentence?: (message: ServerSentenceMessage) => void;
     onError?: (message: string) => void;
@@ -109,6 +114,16 @@ export interface ServerStateMessage {
     state: ServerState;
 }
 
+export interface ServerLifecycleMessage {
+    type: "lifecycle";
+    sessionId: string;
+    phase: LifecyclePhase;
+    reason: string;
+    signerPresent: boolean;
+    signerPositioned: boolean;
+    inactivityMs: number;
+}
+
 export interface ServerUnrecognizedMessage {
     type: "unrecognized";
 }
@@ -159,6 +174,7 @@ export type ServerMessage =
     | ServerCaptionMessage
     | ServerPartialCaptionMessage
     | ServerStateMessage
+    | ServerLifecycleMessage
     | ServerUnrecognizedMessage
     | ServerGlossSequenceMessage
     | ServerSentenceMessage

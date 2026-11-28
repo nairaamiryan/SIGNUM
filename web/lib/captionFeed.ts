@@ -1,13 +1,16 @@
 import type {
     CandidateSign,
     GlossToken,
+    LifecyclePhase,
     SentenceStatus,
     ServerGlossSequenceMessage,
+    ServerLifecycleMessage,
     ServerSentenceMessage,
     ServerState,
 } from "./types";
 import {
     CAPTION_HISTORY_LIMIT,
+    LifecyclePhase as LifecyclePhaseMap,
     MAX_PARTIAL_GLOSSES,
     SentenceStatus as SentenceStatusMap,
     ServerState as ServerStateMap,
@@ -55,6 +58,11 @@ export interface CaptionEntry {
 
 export interface CaptionFeedState {
     serverState: ServerState;
+    /** Shared gesture lifecycle phase from the recognition pipeline (KAN-26). */
+    lifecyclePhase: LifecyclePhase;
+    signerPresent: boolean;
+    signerPositioned: boolean;
+    lifecycleReason: string | null;
     /** The user pressed "Finalize" and the server has not answered yet. */
     finalizing: boolean;
     partials: PartialGloss[];
@@ -72,6 +80,10 @@ export interface CaptionFeedState {
 
 export const initialCaptionFeedState: CaptionFeedState = {
     serverState: ServerStateMap.IDLE,
+    lifecyclePhase: LifecyclePhaseMap.IDLE,
+    signerPresent: false,
+    signerPositioned: false,
+    lifecycleReason: null,
     finalizing: false,
     partials: [],
     preview: null,
@@ -86,6 +98,7 @@ export const initialCaptionFeedState: CaptionFeedState = {
 
 export type CaptionFeedAction =
     | { type: "server_state"; state: ServerState }
+    | { type: "lifecycle"; message: ServerLifecycleMessage }
     | {
           type: "caption";
           gloss: string[];
@@ -131,6 +144,17 @@ export function captionFeedReducer(
                 // earlier error are over.
                 finalizing: listening ? false : state.finalizing,
                 error: listening ? null : state.error,
+            };
+        }
+
+        case "lifecycle": {
+            const { phase, signerPresent, signerPositioned, reason } = action.message;
+            return {
+                ...state,
+                lifecyclePhase: phase,
+                signerPresent,
+                signerPositioned,
+                lifecycleReason: reason,
             };
         }
 
@@ -180,7 +204,10 @@ export function captionFeedReducer(
         case "restart":
             return {
                 ...state,
+                lifecyclePhase: LifecyclePhaseMap.TERMINATED,
+                lifecycleReason: "manual_termination",
                 partials: [],
+                preview: null,
                 unrecognized: false,
                 ambiguous: false,
                 ambiguousCandidates: [],

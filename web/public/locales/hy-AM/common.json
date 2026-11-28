@@ -8,6 +8,14 @@
     "processing": "Մշակվում է...",
     "error": "Սխալ"
   },
+  "lifecycle": {
+    "idle": "Դիրքավորվեք կադրում",
+    "ready": "Պատրաստ է",
+    "signing": "Ցույց է տալիս",
+    "inactive": "Դադար",
+    "finalizing": "Ավարտվում է…",
+    "terminated": "Ընդհատված է"
+  },
   "controls": {
     "startCamera": "Միացնել տեսախցիկը",
     "stopCamera": "Անջատել տեսախցիկը",

@@ -23,8 +23,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from backend_log_handler import BackendLogHandler
 from classification import ClassificationResult, classify_segment
-from gloss_sequence import BOUNDARY_FINALIZE, GlossSequence
+from gloss_sequence import BOUNDARY_FINALIZE, BOUNDARY_PAUSE, GlossSequence
 from landmark_buffer import LandmarkFrame
+from lifecycle import LifecycleUpdate
 from nlp import NLPService, SentenceStatus
 from session import RecognitionState, SessionRegistry
 
@@ -74,6 +75,13 @@ async def health_check():
 
 async def send_state(websocket: WebSocket, state: RecognitionState) -> None:
     await websocket.send_text(json.dumps({"type": "state", "state": state.value}))
+
+
+async def send_lifecycle(
+    websocket: WebSocket, session_id: str, update: LifecycleUpdate
+) -> None:
+    """Send a `lifecycle` update to keep frontend and pipeline in sync (KAN-26)."""
+    await websocket.send_text(json.dumps(update.to_message(session_id)))
 
 
 def build_caption_payload(result: ClassificationResult) -> dict:
@@ -219,6 +227,9 @@ async def recognition_socket(websocket: WebSocket):
                     extra={"session_id": session_id, "audit": True},
                 )
                 await send_state(websocket, session.state)
+                await send_lifecycle(
+                    websocket, session_id, session.lifecycle.current_update(changed=True)
+                )
 
             elif msg_type == "landmarks":
                 if session.state != RecognitionState.LISTENING:
@@ -274,6 +285,28 @@ async def recognition_socket(websocket: WebSocket):
                 if pause_closed is not None:
                     await publish_gloss_sequence(websocket, session, pause_closed)
 
+                # Lifecycle management (KAN-26): track start, progression,
+                # inactivity, and automatic sentence finalization.
+                lifecycle_update = session.lifecycle.on_frame(
+                    frame,
+                    spotter_active=session.spotter.is_active,
+                    has_pending_glosses=session.gloss_sequence.has_pending,
+                )
+                if lifecycle_update.changed:
+                    await send_lifecycle(websocket, session_id, lifecycle_update)
+
+                if (
+                    pause_closed is None
+                    and lifecycle_update.should_finalize
+                    and session.gloss_sequence.has_pending
+                ):
+                    auto_closed = session.gloss_sequence.close(BOUNDARY_PAUSE)
+                    if auto_closed is not None:
+                        await publish_gloss_sequence(websocket, session, auto_closed)
+                    await send_lifecycle(
+                        websocket, session_id, session.lifecycle.on_finalized()
+                    )
+
             elif msg_type == "repeat":
                 if not session.last_segment_frames:
                     await websocket.send_text(json.dumps({"type": "unrecognized"}))
@@ -294,6 +327,8 @@ async def recognition_socket(websocket: WebSocket):
                     await publish_gloss_sequence(websocket, session, closed)
 
             elif msg_type == "restart":
+                term_update = session.lifecycle.on_manual_terminate()
+                await send_lifecycle(websocket, session_id, term_update)
                 session.reset()
                 logger.info(
                     "Session %s restarted by user",
@@ -301,10 +336,19 @@ async def recognition_socket(websocket: WebSocket):
                     extra={"session_id": session_id, "audit": True},
                 )
                 await send_state(websocket, session.state)
+                await send_lifecycle(
+                    websocket, session_id, session.lifecycle.current_update(changed=True)
+                )
 
             elif msg_type == "finalize":
+                await send_lifecycle(
+                    websocket, session_id, session.lifecycle.on_manual_finalize()
+                )
                 if session.buffer.is_empty:
                     await websocket.send_text(json.dumps({"type": "unrecognized"}))
+                    await send_lifecycle(
+                        websocket, session_id, session.lifecycle.on_finalized()
+                    )
                     continue
 
                 session.state = RecognitionState.PROCESSING
@@ -335,6 +379,9 @@ async def recognition_socket(websocket: WebSocket):
 
                 session.reset()
                 await send_state(websocket, session.state)
+                await send_lifecycle(
+                    websocket, session_id, session.lifecycle.on_finalized()
+                )
 
             else:
                 logger.warning("Unknown message type: %s", msg_type)

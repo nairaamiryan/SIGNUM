@@ -82,6 +82,20 @@ CONTINUOUS_RECLASS_COOLDOWN_MS = 300
 # Landmark spread below which a hand is considered "collapsed" (blur).
 CONTINUOUS_QUALITY_BLUR_THRESHOLD = 0.02
 
+# --- Gesture lifecycle management (KAN-26) ---
+# Normalized margin from frame edges defining the active camera area.
+LIFECYCLE_ACTIVE_AREA_MARGIN = 0.08
+# Minimum horizontal shoulder span (normalized) to consider signer positioned.
+LIFECYCLE_MIN_SHOULDER_SPAN = 0.08
+# How long (ms) the signer must be positioned before entering READY/SIGNING.
+LIFECYCLE_START_HOLD_MS = 200
+# Inactivity period (ms) before transitioning from SIGNING to INACTIVE.
+LIFECYCLE_INACTIVITY_MS = 1200
+# Inactivity threshold (ms) before auto-finalizing the current sentence.
+LIFECYCLE_FINALIZE_TIMEOUT_MS = 2000
+# Consecutive neutral-pose frames while signing that signal end of signing.
+LIFECYCLE_NEUTRAL_END_FRAMES = 6
+
 # --- NLP layer / LLM (KAN-19) ---
 # Provider selected by the LLM_PROVIDER environment variable ("gemini" or "none").
 DEFAULT_LLM_PROVIDER = "gemini"

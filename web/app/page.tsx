@@ -23,6 +23,7 @@ export default function Home() {
         onCaption: feed.onCaption,
         onUnrecognized: feed.onUnrecognized,
         onServerState: feed.onServerState,
+        onLifecycle: feed.onLifecycle,
         onGlossSequence: feed.onGlossSequence,
         onSentence: feed.onSentence,
         onError: feed.onError,
@@ -98,6 +99,7 @@ export default function Home() {
                     <CardContent>
                         <CameraFeed
                             status={status}
+                            lifecyclePhase={feed.lifecyclePhase}
                             onStreamReady={handleStreamReady}
                             onStreamStopped={handleStreamStopped}
                             onLandmarksDetected={handleLandmarksDetected}

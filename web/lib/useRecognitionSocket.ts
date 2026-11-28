@@ -27,6 +27,7 @@ export function useRecognitionSocket({
     onPartialCaption,
     onUnrecognized,
     onServerState,
+    onLifecycle,
     onGlossSequence,
     onSentence,
     onError,
@@ -176,6 +177,9 @@ export function useRecognitionSocket({
                         case "state":
                             onServerState?.(message.state);
                             break;
+                        case "lifecycle":
+                            onLifecycle?.(message);
+                            break;
                         case "gloss_sequence":
                             onGlossSequence?.(message);
                             break;
@@ -194,7 +198,17 @@ export function useRecognitionSocket({
                 }
             };
         },
-        [onCaption, onPartialCaption, onUnrecognized, onServerState, onGlossSequence, onSentence, onError, t],
+        [
+            onCaption,
+            onPartialCaption,
+            onUnrecognized,
+            onServerState,
+            onLifecycle,
+            onGlossSequence,
+            onSentence,
+            onError,
+            t,
+        ],
     );
 
     useEffect(() => {
