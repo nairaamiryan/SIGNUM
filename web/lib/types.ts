@@ -20,8 +20,19 @@ export type GlossStatus = (typeof GlossStatusMap)[keyof typeof GlossStatusMap];
 
 export type DistributiveOmit<T, K extends keyof T> = T extends unknown ? Omit<T, K> : never;
 
+export interface CandidateSign {
+    gloss: string;
+    confidence: number;
+}
+
 export interface UseRecognitionSocketOptions {
-    onCaption?: (text: string, gloss: string[], confidence: number) => void;
+    onCaption?: (
+        text: string,
+        gloss: string[],
+        confidence: number,
+        ambiguous?: boolean,
+        candidates?: CandidateSign[],
+    ) => void;
     onUnrecognized?: () => void;
     onServerState?: (state: ServerState) => void;
     onGlossSequence?: (message: ServerGlossSequenceMessage) => void;
@@ -50,7 +61,22 @@ export interface ClientFinalizeMessage {
     sessionId: string;
 }
 
-export type ClientMessage = ClientConnectMessage | ClientLandmarksMessage | ClientFinalizeMessage;
+export interface ClientRepeatMessage {
+    type: "repeat";
+    sessionId: string;
+}
+
+export interface ClientRestartMessage {
+    type: "restart";
+    sessionId: string;
+}
+
+export type ClientMessage =
+    | ClientConnectMessage
+    | ClientLandmarksMessage
+    | ClientFinalizeMessage
+    | ClientRepeatMessage
+    | ClientRestartMessage;
 
 // Messages received from the Gesture Recognition Service.
 export interface ServerCaptionMessage {
@@ -58,6 +84,8 @@ export interface ServerCaptionMessage {
     text: string;
     gloss: string[];
     confidence: number;
+    ambiguous?: boolean;
+    candidates?: CandidateSign[];
 }
 
 export interface ServerStateMessage {

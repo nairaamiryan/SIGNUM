@@ -2,8 +2,13 @@
 
 import { useCallback, useEffect, useReducer } from "react";
 import { captionFeedReducer, deriveRecognitionState, initialCaptionFeedState } from "./captionFeed";
-import { PENDING_TIMEOUT_MS, UNRECOGNIZED_NOTICE_MS } from "./constants";
-import type { ServerGlossSequenceMessage, ServerSentenceMessage, ServerState } from "./types";
+import { AMBIGUOUS_NOTICE_MS, PENDING_TIMEOUT_MS, UNRECOGNIZED_NOTICE_MS } from "./constants";
+import type {
+    CandidateSign,
+    ServerGlossSequenceMessage,
+    ServerSentenceMessage,
+    ServerState,
+} from "./types";
 
 /**
  * Real-time captioning state (KAN-23): partial results, completed sentences,
@@ -17,11 +22,17 @@ export function useCaptionFeed() {
     const [state, dispatch] = useReducer(captionFeedReducer, initialCaptionFeedState);
 
     const onCaption = useCallback(
-        (_text: string, gloss: string[], confidence: number) =>
-            dispatch({ type: "caption", gloss, confidence }),
+        (
+            _text: string,
+            gloss: string[],
+            confidence: number,
+            ambiguous?: boolean,
+            candidates?: CandidateSign[],
+        ) => dispatch({ type: "caption", gloss, confidence, ambiguous, candidates }),
         [],
     );
     const onUnrecognized = useCallback(() => dispatch({ type: "unrecognized" }), []);
+    const onRestartRequested = useCallback(() => dispatch({ type: "restart" }), []);
     const onServerState = useCallback(
         (serverState: ServerState) => dispatch({ type: "server_state", state: serverState }),
         [],
@@ -48,6 +59,13 @@ export function useCaptionFeed() {
         return () => clearTimeout(timer);
     }, [state.unrecognized]);
 
+    // The "ambiguous sign" notice disappears by itself.
+    useEffect(() => {
+        if (!state.ambiguous) return;
+        const timer = setTimeout(() => dispatch({ type: "clear_ambiguous" }), AMBIGUOUS_NOTICE_MS);
+        return () => clearTimeout(timer);
+    }, [state.ambiguous]);
+
     // Never wait forever for a sentence that does not come.
     const pendingCount = state.pending.length;
     useEffect(() => {
@@ -70,6 +88,8 @@ export function useCaptionFeed() {
         /** A sentence is being generated for an utterance that has ended. */
         generating: pendingCount > 0,
         unrecognized: state.unrecognized,
+        ambiguous: state.ambiguous,
+        ambiguousCandidates: state.ambiguousCandidates,
         error: state.error,
         onCaption,
         onUnrecognized,
@@ -78,6 +98,7 @@ export function useCaptionFeed() {
         onSentence,
         onError,
         onFinalizeRequested,
+        onRestartRequested,
         reset,
     };
 }

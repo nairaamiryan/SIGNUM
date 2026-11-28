@@ -1,4 +1,5 @@
 import type {
+    CandidateSign,
     GlossToken,
     SentenceStatus,
     ServerGlossSequenceMessage,
@@ -31,6 +32,8 @@ export interface PartialGloss {
     id: number;
     gloss: string;
     confidence: number;
+    ambiguous?: boolean;
+    candidates?: CandidateSign[];
 }
 
 /** An utterance that has ended and waits for its sentence. */
@@ -59,6 +62,8 @@ export interface CaptionFeedState {
     /** Completed captions, newest first. */
     captions: CaptionEntry[];
     unrecognized: boolean;
+    ambiguous: boolean;
+    ambiguousCandidates: CandidateSign[];
     error: string | null;
     nextPartialId: number;
 }
@@ -70,15 +75,25 @@ export const initialCaptionFeedState: CaptionFeedState = {
     pending: [],
     captions: [],
     unrecognized: false,
+    ambiguous: false,
+    ambiguousCandidates: [],
     error: null,
     nextPartialId: 1,
 };
 
 export type CaptionFeedAction =
     | { type: "server_state"; state: ServerState }
-    | { type: "caption"; gloss: string[]; confidence: number }
+    | {
+          type: "caption";
+          gloss: string[];
+          confidence: number;
+          ambiguous?: boolean;
+          candidates?: CandidateSign[];
+      }
     | { type: "unrecognized" }
     | { type: "clear_unrecognized" }
+    | { type: "clear_ambiguous" }
+    | { type: "restart" }
     | { type: "gloss_sequence"; message: ServerGlossSequenceMessage }
     | { type: "sentence"; message: ServerSentenceMessage }
     | { type: "pending_timeout" }
@@ -116,26 +131,46 @@ export function captionFeedReducer(
         }
 
         case "caption": {
+            const isAmbiguous = Boolean(action.ambiguous);
+            const candidates = isAmbiguous ? (action.candidates ?? []) : [];
             const added = action.gloss.map((gloss, index) => ({
                 id: state.nextPartialId + index,
                 gloss,
                 confidence: action.confidence,
+                ambiguous: isAmbiguous,
+                candidates,
             }));
             return {
                 ...state,
                 partials: [...state.partials, ...added].slice(-MAX_PARTIAL_GLOSSES),
                 nextPartialId: state.nextPartialId + added.length,
                 unrecognized: false,
+                ambiguous: isAmbiguous,
+                ambiguousCandidates: candidates,
                 error: null,
             };
         }
 
         case "unrecognized":
             // Also ends a finalize that had nothing to recognize.
-            return { ...state, unrecognized: true, finalizing: false };
+            return { ...state, unrecognized: true, ambiguous: false, finalizing: false };
 
         case "clear_unrecognized":
             return { ...state, unrecognized: false };
+
+        case "clear_ambiguous":
+            return { ...state, ambiguous: false, ambiguousCandidates: [] };
+
+        case "restart":
+            return {
+                ...state,
+                partials: [],
+                unrecognized: false,
+                ambiguous: false,
+                ambiguousCandidates: [],
+                finalizing: false,
+                error: null,
+            };
 
         case "gloss_sequence": {
             const { utteranceId, glosses } = action.message;

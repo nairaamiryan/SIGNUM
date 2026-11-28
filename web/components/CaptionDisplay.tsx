@@ -1,12 +1,12 @@
 "use client";
 
-import { TriangleAlert, OctagonAlert } from "lucide-react";
+import { TriangleAlert, OctagonAlert, HelpCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import type { CaptionEntry, PartialGloss } from "@/lib/captionFeed";
 import { SentenceStatus, UNCERTAIN_CONFIDENCE } from "@/lib/constants";
-import type { SentenceStatus as SentenceStatusType } from "@/lib/types";
+import type { CandidateSign, SentenceStatus as SentenceStatusType } from "@/lib/types";
 
 interface CaptionDisplayProps {
     /** Signs recognized so far in the utterance that is still in progress. */
@@ -16,6 +16,8 @@ interface CaptionDisplayProps {
     /** A sentence is being generated for an utterance that has ended. */
     generating: boolean;
     unrecognized: boolean;
+    ambiguous: boolean;
+    ambiguousCandidates: CandidateSign[];
     error: string | null;
 }
 
@@ -24,6 +26,7 @@ interface CaptionDisplayProps {
 const KNOWN_WARNINGS = [
     "missing_glosses",
     "uncertain_glosses",
+    "ambiguous_glosses",
     "omitted_glosses",
     "incomplete",
 ] as const;
@@ -49,13 +52,15 @@ export default function CaptionDisplay({
     captions,
     generating,
     unrecognized,
+    ambiguous,
+    ambiguousCandidates,
     error,
 }: CaptionDisplayProps) {
     const { t } = useTranslation();
 
     const [latest, ...earlier] = captions;
     const showPlaceholder =
-        partials.length === 0 && !generating && !unrecognized && !error && !latest;
+        partials.length === 0 && !generating && !unrecognized && !ambiguous && !error && !latest;
 
     return (
         <div className="flex w-full flex-col gap-3">
@@ -77,6 +82,24 @@ export default function CaptionDisplay({
                 </Alert>
             )}
 
+            {ambiguous && (
+                <Alert variant="warning" role="status">
+                    <HelpCircle />
+                    <AlertDescription className="flex flex-col gap-1.5">
+                        <span>{t("caption.ambiguous")}</span>
+                        {ambiguousCandidates.length > 0 && (
+                            <span className="flex flex-wrap gap-1.5">
+                                {ambiguousCandidates.map((cand) => (
+                                    <Badge key={cand.gloss} variant="secondary" className="text-xs">
+                                        {cand.gloss} ({percent(cand.confidence)})
+                                    </Badge>
+                                ))}
+                            </span>
+                        )}
+                    </AlertDescription>
+                </Alert>
+            )}
+
             {/* Live area: partial results of the utterance in progress. */}
             {(partials.length > 0 || generating) && (
                 <div aria-live="polite" className="rounded-lg border border-dashed px-4 py-3">
@@ -88,25 +111,31 @@ export default function CaptionDisplay({
                             <ul className="flex flex-wrap gap-2">
                                 {partials.map((partial) => {
                                     const uncertain = partial.confidence < UNCERTAIN_CONFIDENCE;
+                                    const isAmbiguous = Boolean(partial.ambiguous);
                                     return (
                                         <li
                                             key={partial.id}
                                             className={`rounded-full border px-3 py-1 text-sm ${
-                                                uncertain
-                                                    ? "border-warning/70 text-warning-foreground dark:text-warning"
-                                                    : "text-foreground"
+                                                isAmbiguous
+                                                    ? "border-dashed border-warning text-warning-foreground dark:text-warning"
+                                                    : uncertain
+                                                      ? "border-warning/70 text-warning-foreground dark:text-warning"
+                                                      : "text-foreground"
                                             }`}
                                             title={
-                                                uncertain
-                                                    ? t("caption.uncertain")
-                                                    : t("caption.confidence", {
-                                                          value: (partial.confidence * 100).toFixed(
-                                                              0,
-                                                          ),
-                                                      })
+                                                isAmbiguous
+                                                    ? t("caption.ambiguous")
+                                                    : uncertain
+                                                      ? t("caption.uncertain")
+                                                      : t("caption.confidence", {
+                                                            value: (
+                                                                partial.confidence * 100
+                                                            ).toFixed(0),
+                                                        })
                                             }
                                         >
                                             {partial.gloss}
+                                            {isAmbiguous && " ?"}
                                             <span className="ml-2 text-xs text-muted-foreground">
                                                 {percent(partial.confidence)}
                                             </span>

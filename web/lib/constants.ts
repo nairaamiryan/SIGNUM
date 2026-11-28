@@ -1,4 +1,4 @@
-﻿export const ConnectionState = {
+export const ConnectionState = {
     IDLE: "idle",
     CONNECTING: "connecting",
     OPEN: "open",
@@ -41,11 +41,13 @@ export const SentenceStatus = {
 export const GlossStatus = {
     ACCEPTED: "accepted",
     UNCERTAIN: "uncertain",
+    AMBIGUOUS: "ambiguous",
 } as const;
 
 export const CAPTION_HISTORY_LIMIT = 5; // completed captions kept on screen
 export const MAX_PARTIAL_GLOSSES = 30; // live signs kept for one utterance
 export const UNRECOGNIZED_NOTICE_MS = 3000; // how long "not recognized" stays
+export const AMBIGUOUS_NOTICE_MS = 4000; // how long "ambiguous sign" stays
 export const PENDING_TIMEOUT_MS = 15000; // stop waiting for a sentence after this
 export const UNCERTAIN_CONFIDENCE = 0.5; // below this a sign is shown as uncertain
 

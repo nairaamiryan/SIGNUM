@@ -8,6 +8,7 @@ from gloss_sequence import (
     BOUNDARY_MAX_LENGTH,
     BOUNDARY_PAUSE,
     STATUS_ACCEPTED,
+    STATUS_AMBIGUOUS,
     STATUS_UNCERTAIN,
     GlossSequenceProcessor,
 )
@@ -17,6 +18,8 @@ from gloss_sequence import (
 class Pred:
     gloss: list
     confidence: float
+    is_ambiguous: bool = False
+    candidates: list | None = None
 
 
 def make(**kwargs) -> GlossSequenceProcessor:
@@ -172,6 +175,24 @@ class GlossSequenceTests(unittest.TestCase):
                 "repeats": 1,
             },
         )
+
+    def test_ambiguous_status_and_candidates(self):
+        p = make()
+        cands = [{"gloss": "A", "confidence": 0.48}, {"gloss": "B", "confidence": 0.44}]
+        p.add_prediction(Pred(["A"], 0.48, is_ambiguous=True, candidates=cands), 0, 500)
+        seq = p.close()
+        self.assertEqual(seq.tokens[0].status, STATUS_AMBIGUOUS)
+        self.assertEqual(seq.tokens[0].candidates, cands)
+        self.assertEqual(seq.to_message()["glosses"][0]["candidates"], cands)
+
+    def test_remove_last_token(self):
+        p = make()
+        p.add_prediction(Pred(["A"], 0.9), 0, 500)
+        p.add_prediction(Pred(["B"], 0.9), 1000, 1500)
+        self.assertTrue(p.remove_last_token())
+        seq = p.close()
+        self.assertEqual([t.gloss for t in seq.tokens], ["A"])
+        self.assertFalse(p.remove_last_token())
 
 
 if __name__ == "__main__":

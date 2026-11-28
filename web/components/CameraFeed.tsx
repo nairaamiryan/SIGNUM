@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useCallback, useEffect } from "react";
-import { Camera, CameraOff, CheckCheck } from "lucide-react";
+import { Camera, CameraOff, CheckCheck, RotateCcw, RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +18,10 @@ interface CameraFeedProps {
     onLandmarksDetected?: (frame: LandmarkFrame) => void;
     /** Called when the user explicitly finalizes the current sentence. */
     onFinalize?: () => void;
+    /** Called when the user requests re-evaluation of the last sign. */
+    onRepeat?: () => void;
+    /** Called when the user restarts the current sentence. */
+    onRestart?: () => void;
     /**
      * Recognition state reported by the page from the server events. While the
      * camera is on it decides the badge and whether Finalize is enabled.
@@ -39,6 +43,8 @@ export default function CameraFeed({
     onStreamStopped,
     onLandmarksDetected,
     onFinalize,
+    onRepeat,
+    onRestart,
     status,
 }: CameraFeedProps) {
     const { t } = useTranslation();
@@ -179,6 +185,26 @@ export default function CameraFeed({
                             <CheckCheck />
                             {t("controls.finalize")}
                         </Button>
+                        {onRepeat && (
+                            <Button
+                                variant="outline"
+                                onClick={onRepeat}
+                                disabled={displayState !== "listening"}
+                            >
+                                <RotateCcw />
+                                {t("controls.repeat")}
+                            </Button>
+                        )}
+                        {onRestart && (
+                            <Button
+                                variant="outline"
+                                onClick={onRestart}
+                                disabled={displayState !== "listening"}
+                            >
+                                <RefreshCw />
+                                {t("controls.restart")}
+                            </Button>
+                        )}
                         <Button variant="destructive" onClick={stopCamera}>
                             <CameraOff />
                             {t("controls.stopCamera")}

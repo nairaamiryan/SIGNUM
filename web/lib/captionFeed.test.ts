@@ -188,4 +188,26 @@ describe("recognition state", () => {
         state = run({ type: "sentence", message: sentence(1) }, { type: "reset" });
         expect(state).toEqual(initial);
     });
+
+    it("tracks ambiguous captions and clears them on clear_ambiguous or restart", () => {
+        const candidates = [
+            { gloss: "A", confidence: 0.48 },
+            { gloss: "B", confidence: 0.44 },
+        ];
+        const state = run(
+            { type: "server_state", state: "listening" },
+            { type: "caption", gloss: ["A"], confidence: 0.48, ambiguous: true, candidates },
+        );
+        expect(state.ambiguous).toBe(true);
+        expect(state.ambiguousCandidates).toEqual(candidates);
+        expect(state.partials[0].ambiguous).toBe(true);
+
+        const cleared = reduce(state, { type: "clear_ambiguous" });
+        expect(cleared.ambiguous).toBe(false);
+        expect(cleared.ambiguousCandidates).toEqual([]);
+
+        const restarted = reduce(state, { type: "restart" });
+        expect(restarted.partials).toEqual([]);
+        expect(restarted.ambiguous).toBe(false);
+    });
 });

@@ -154,7 +154,13 @@ export function useRecognitionSocket({
 
                     switch (message.type) {
                         case "caption":
-                            onCaption?.(message.text, message.gloss, message.confidence);
+                            onCaption?.(
+                                message.text,
+                                message.gloss,
+                                message.confidence,
+                                message.ambiguous,
+                                message.candidates,
+                            );
                             break;
                         case "unrecognized":
                             onUnrecognized?.();

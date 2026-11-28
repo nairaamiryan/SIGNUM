@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 from gloss_sequence import GlossSequenceProcessor
-from landmark_buffer import LandmarkBuffer
+from landmark_buffer import LandmarkBuffer, LandmarkFrame
 from spotting import HeuristicGestureSpotter
 
 
@@ -31,6 +31,8 @@ class Session:
     last_activity: float = field(default_factory=time.monotonic)
     # Earlier sentences of this session; context for the NLP layer (KAN-19).
     sentence_context: list[str] = field(default_factory=list)
+    # Frames of the most recently classified segment for `repeat` (KAN-24).
+    last_segment_frames: list[LandmarkFrame] = field(default_factory=list)
     gloss_sequence: GlossSequenceProcessor = field(init=False)
 
     def __post_init__(self) -> None:
@@ -55,6 +57,7 @@ class Session:
         self.buffer.clear()
         self.spotter.reset()
         self.gloss_sequence.discard()
+        self.last_segment_frames.clear()
         self.state = RecognitionState.LISTENING
 
 

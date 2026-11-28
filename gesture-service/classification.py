@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 import os
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional
 
@@ -17,6 +17,8 @@ import torch
 import torch.nn.functional as F
 
 from constants import (
+    AMBIGUITY_TOP_K,
+    DEFAULT_AMBIGUITY_MARGIN,
     DEFAULT_CLASSIFICATION_CONFIDENCE_THRESHOLD,
     DEFAULT_SPOTER_CHECKPOINT_PATH,
     DEFAULT_SPOTER_MODEL_NAME,
@@ -38,6 +40,7 @@ CHECKPOINT_PATH = os.environ.get("SPOTER_CHECKPOINT_PATH", DEFAULT_SPOTER_CHECKP
 CONFIDENCE_THRESHOLD = float(
     os.environ.get("SPOTER_CONFIDENCE_THRESHOLD", str(DEFAULT_CLASSIFICATION_CONFIDENCE_THRESHOLD))
 )
+AMBIGUITY_MARGIN = float(os.environ.get("SPOTER_AMBIGUITY_MARGIN", str(DEFAULT_AMBIGUITY_MARGIN)))
 
 # Global model state
 _model: Optional[SPOTER] = None
@@ -53,12 +56,25 @@ _MOCK_RESULTS: list[dict[str, Any]] = [
 
 
 @dataclass
+class CandidateSign:
+    """One of the top-K classification candidates (KAN-24)."""
+
+    gloss: str
+    confidence: float
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"gloss": self.gloss, "confidence": round(self.confidence, 4)}
+
+
+@dataclass
 class ClassificationResult:
     gloss: list[str]
     text: str
     confidence: float
     model_name: str = MODEL_NAME
     model_version: str = MODEL_VERSION
+    is_ambiguous: bool = False
+    candidates: list[CandidateSign] = field(default_factory=list)
 
 
 def load_model(checkpoint_path: Optional[str] = None) -> bool:
@@ -183,7 +199,25 @@ def classify_segment(frames: list[LandmarkFrame]) -> Optional[ClassificationResu
     confidence = float(top_prob.item())
     pred_idx = int(pred_idx_tensor.item())
 
-    # 5. Confidence check
+    # 5. Top-K candidates and ambiguity detection (KAN-24)
+    k = min(AMBIGUITY_TOP_K, probs.shape[0])
+    top_probs, top_indices = torch.topk(probs, k, dim=-1)
+    is_ambiguous = False
+    candidates: list[CandidateSign] = []
+
+    if k >= 2:
+        margin = float((top_probs[0] - top_probs[1]).item())
+        if margin < AMBIGUITY_MARGIN and confidence >= CONFIDENCE_THRESHOLD:
+            is_ambiguous = True
+            for i in range(k):
+                cand_conf = float(top_probs[i].item())
+                if cand_conf < CONFIDENCE_THRESHOLD:
+                    break
+                cand_idx = int(top_indices[i].item())
+                cand_gloss = _label_map.decode(cand_idx)
+                candidates.append(CandidateSign(gloss=cand_gloss, confidence=cand_conf))
+
+    # 6. Confidence check
     if confidence < CONFIDENCE_THRESHOLD:
         logger.debug(
             "Confidence %.3f below threshold %.3f (predicted class %d)",
@@ -193,16 +227,22 @@ def classify_segment(frames: list[LandmarkFrame]) -> Optional[ClassificationResu
         )
         return None
 
-    # 6. Map class index to Armenian gloss
+    # 7. Map class index to Armenian gloss
     armenian_gloss = _label_map.decode(pred_idx)
 
     logger.info(
-        "Classified gesture: gloss=%s, confidence=%.3f, model=%s, version=%s",
+        "Classified gesture: gloss=%s, confidence=%.3f, ambiguous=%s, model=%s, version=%s",
         armenian_gloss,
         confidence,
+        is_ambiguous,
         MODEL_NAME,
         MODEL_VERSION,
-        extra={"model_name": MODEL_NAME, "model_version": MODEL_VERSION, "confidence": confidence},
+        extra={
+            "model_name": MODEL_NAME,
+            "model_version": MODEL_VERSION,
+            "confidence": confidence,
+            "ambiguous": is_ambiguous,
+        },
     )
 
     return ClassificationResult(
@@ -211,6 +251,8 @@ def classify_segment(frames: list[LandmarkFrame]) -> Optional[ClassificationResu
         confidence=round(confidence, 4),
         model_name=MODEL_NAME,
         model_version=MODEL_VERSION,
+        is_ambiguous=is_ambiguous,
+        candidates=candidates,
     )
 
 
