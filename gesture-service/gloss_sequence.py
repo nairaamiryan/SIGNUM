@@ -44,6 +44,7 @@ logger = logging.getLogger("gesture-service.gloss_sequence")
 
 STATUS_ACCEPTED = "accepted"
 STATUS_UNCERTAIN = "uncertain"
+STATUS_AMBIGUOUS = "ambiguous"
 
 BOUNDARY_PAUSE = "pause"
 BOUNDARY_FINALIZE = "finalize"
@@ -60,9 +61,10 @@ class GlossToken:
     end_ms: int
     status: str
     repeats: int = 1  # how many predictions were merged into this token
+    candidates: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        data: dict[str, Any] = {
             "gloss": self.gloss,
             "confidence": self.confidence,
             "startMs": self.start_ms,
@@ -70,6 +72,9 @@ class GlossToken:
             "status": self.status,
             "repeats": self.repeats,
         }
+        if self.candidates:
+            data["candidates"] = list(self.candidates)
+        return data
 
 
 @dataclass
@@ -162,11 +167,15 @@ class GlossSequenceProcessor:
 
         glosses = [g for g in (getattr(result, "gloss", None) or []) if g and g.strip()]
         confidence = float(getattr(result, "confidence", 0.0) or 0.0)
+        is_ambiguous = bool(getattr(result, "is_ambiguous", False))
+        raw_candidates = getattr(result, "candidates", None) or []
+        candidates = [c.to_dict() if hasattr(c, "to_dict") else dict(c) for c in raw_candidates]
 
         if not glosses or confidence < self.min_confidence:
             self._add_gap()
             return None
 
+        status = self._status_for(confidence, is_ambiguous=is_ambiguous)
         for gloss in glosses:
             self._add_token(
                 GlossToken(
@@ -174,7 +183,8 @@ class GlossSequenceProcessor:
                     confidence=round(confidence, 4),
                     start_ms=start,
                     end_ms=end,
-                    status=self._status_for(confidence),
+                    status=status,
+                    candidates=candidates if is_ambiguous else [],
                 )
             )
 
@@ -233,8 +243,20 @@ class GlossSequenceProcessor:
 
     # --------------------------------------------------------------- internal
 
-    def _status_for(self, confidence: float) -> str:
+    def _status_for(self, confidence: float, *, is_ambiguous: bool = False) -> str:
+        if is_ambiguous:
+            return STATUS_AMBIGUOUS
         return STATUS_ACCEPTED if confidence >= self.accept_confidence else STATUS_UNCERTAIN
+
+    def remove_last_token(self) -> bool:
+        """Remove the last token from the open utterance (for `repeat` fallback).
+        Returns True if a token was removed."""
+        if not self._tokens:
+            return False
+        self._tokens.pop()
+        # Drop any gap markers that now point past the end, or keep valid ones.
+        self._gaps = [g for g in self._gaps if g <= len(self._tokens)]
+        return True
 
     def _add_gap(self) -> None:
         position = len(self._tokens)

@@ -104,6 +104,8 @@ class NLPService:
             warnings.append("missing_glosses")
         if any(t.status == "uncertain" for t in tokens):
             warnings.append("uncertain_glosses")
+        if any(t.status == "ambiguous" for t in tokens):
+            warnings.append("ambiguous_glosses")
 
         def result(text: str, status: SentenceStatus, extra: Sequence[str] = ()) -> SentenceResult:
             return SentenceResult(

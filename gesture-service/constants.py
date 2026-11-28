@@ -29,6 +29,11 @@ DEFAULT_SPOTER_MODEL_NAME = "spoter_arsl"
 DEFAULT_SPOTER_MODEL_VERSION = "v1"
 DEFAULT_SPOTER_CHECKPOINT_PATH = "models/spoter_arsl_v1.pth"
 DEFAULT_CLASSIFICATION_CONFIDENCE_THRESHOLD = 0.3
+# If the gap between top-1 and top-2 softmax probabilities is below this,
+# the prediction is marked as ambiguous (KAN-24).
+DEFAULT_AMBIGUITY_MARGIN = 0.15
+# Number of top candidates to report when a prediction is ambiguous.
+AMBIGUITY_TOP_K = 3
 SPOTER_HIDDEN_DIM = 108
 SPOTER_NUM_LANDMARKS = 54
 

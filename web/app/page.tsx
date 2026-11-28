@@ -60,12 +60,21 @@ export default function Home() {
         [send],
     );
 
-    const { onFinalizeRequested } = feed;
+    const { onFinalizeRequested, onRestartRequested } = feed;
 
     const handleFinalize = useCallback(() => {
         onFinalizeRequested();
         send({ type: "finalize" });
     }, [onFinalizeRequested, send]);
+
+    const handleRepeat = useCallback(() => {
+        send({ type: "repeat" });
+    }, [send]);
+
+    const handleRestart = useCallback(() => {
+        onRestartRequested();
+        send({ type: "restart" });
+    }, [onRestartRequested, send]);
 
     return (
         <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-8">
@@ -93,6 +102,8 @@ export default function Home() {
                             onStreamStopped={handleStreamStopped}
                             onLandmarksDetected={handleLandmarksDetected}
                             onFinalize={handleFinalize}
+                            onRepeat={handleRepeat}
+                            onRestart={handleRestart}
                         />
                     </CardContent>
                 </Card>
@@ -107,6 +118,8 @@ export default function Home() {
                             captions={feed.captions}
                             generating={feed.generating}
                             unrecognized={feed.unrecognized}
+                            ambiguous={feed.ambiguous}
+                            ambiguousCandidates={feed.ambiguousCandidates}
                             error={feed.error}
                         />
                     </CardContent>

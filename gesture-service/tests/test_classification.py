@@ -182,3 +182,40 @@ def test_classify_segment_with_loaded_model():
 
     # Reset back to uninitialized state
     set_model(None, None)
+
+
+def test_classify_segment_ambiguity_detection(monkeypatch):
+    import classification
+
+    class CloseLogitsModel(torch.nn.Module):
+        def __init__(self, logits):
+            super().__init__()
+            self._logits = logits
+
+        def forward(self, x):
+            return self._logits
+
+    label_map = GlossLabelMap(idx_to_gloss={0: "ԲԱՐԵՎ", 1: "ՋՈՒՐ", 2: "ՈՒԶԵԼ"})
+    frames = [_make_dummy_frame(i) for i in range(6)]
+    monkeypatch.setattr(classification, "AMBIGUITY_MARGIN", 0.15)
+    monkeypatch.setattr(classification, "CONFIDENCE_THRESHOLD", 0.2)
+
+    # Top-2 probabilities very close (0.45 vs 0.42 -> delta 0.03 < 0.15)
+    close_logits = torch.tensor([[1.07, 1.00, -1.00]], dtype=torch.float32)
+    set_model(CloseLogitsModel(close_logits), label_map, name="test", version="v1")
+    res = classify_segment(frames)
+    assert res is not None
+    assert res.is_ambiguous is True
+    assert len(res.candidates) >= 2
+    assert res.candidates[0].gloss == "ԲԱՐԵՎ"
+    assert res.candidates[1].gloss == "ՋՈՒՐ"
+
+    # Clear winner (delta > 0.15)
+    clear_logits = torch.tensor([[3.0, 0.0, -2.0]], dtype=torch.float32)
+    set_model(CloseLogitsModel(clear_logits), label_map, name="test", version="v1")
+    res_clear = classify_segment(frames)
+    assert res_clear is not None
+    assert res_clear.is_ambiguous is False
+    assert res_clear.candidates == []
+
+    set_model(None, None)

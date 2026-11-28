@@ -22,7 +22,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend_log_handler import BackendLogHandler
-from classification import classify_segment
+from classification import ClassificationResult, classify_segment
 from gloss_sequence import BOUNDARY_FINALIZE, GlossSequence
 from landmark_buffer import LandmarkFrame
 from nlp import NLPService, SentenceStatus
@@ -74,6 +74,51 @@ async def health_check():
 
 async def send_state(websocket: WebSocket, state: RecognitionState) -> None:
     await websocket.send_text(json.dumps({"type": "state", "state": state.value}))
+
+
+def build_caption_payload(result: ClassificationResult) -> dict:
+    """Build the `caption` WebSocket payload, including ambiguity metadata if present."""
+    payload: dict = {
+        "type": "caption",
+        "text": result.text,
+        "gloss": result.gloss,
+        "confidence": result.confidence,
+    }
+    if result.is_ambiguous:
+        payload["ambiguous"] = True
+        payload["candidates"] = [c.to_dict() for c in result.candidates]
+    return payload
+
+
+async def emit_classification_result(
+    websocket: WebSocket,
+    session_id: str,
+    result: ClassificationResult | None,
+    context_label: str,
+) -> None:
+    """Send either `unrecognized` or `caption` over the WebSocket and log the result."""
+    if result is None:
+        await websocket.send_text(json.dumps({"type": "unrecognized"}))
+        return
+
+    logger.info(
+        "%s: gloss=%s confidence=%.2f ambiguous=%s model=%s version=%s",
+        context_label,
+        result.gloss,
+        result.confidence,
+        result.is_ambiguous,
+        result.model_name,
+        result.model_version,
+        extra={
+            "session_id": session_id,
+            "model_name": result.model_name,
+            "model_version": result.model_version,
+            "confidence": result.confidence,
+            "ambiguous": result.is_ambiguous,
+            "audit": True,
+        },
+    )
+    await websocket.send_text(json.dumps(build_caption_payload(result)))
 
 
 async def send_gloss_sequence(websocket: WebSocket, sequence: GlossSequence) -> None:
@@ -179,39 +224,16 @@ async def recognition_socket(websocket: WebSocket):
                 # Gesture spotting: the spotter consumes each frame and emits
                 # finished gesture segments, which go to classification.
                 for segment in session.spotter.process(frame):
+                    session.last_segment_frames = list(segment.frames)
                     seg_result = classify_segment(segment.frames)
                     closed = session.gloss_sequence.add_prediction(
                         seg_result,
                         segment.frames[0].timestamp,
                         segment.frames[-1].timestamp,
                     )
-                    if seg_result is None:
-                        await websocket.send_text(json.dumps({"type": "unrecognized"}))
-                    else:
-                        logger.info(
-                            "Gesture classified: gloss=%s confidence=%.2f model=%s version=%s",
-                            seg_result.gloss,
-                            seg_result.confidence,
-                            seg_result.model_name,
-                            seg_result.model_version,
-                            extra={
-                                "session_id": session_id,
-                                "model_name": seg_result.model_name,
-                                "model_version": seg_result.model_version,
-                                "confidence": seg_result.confidence,
-                                "audit": True,
-                            },
-                        )
-                        await websocket.send_text(
-                            json.dumps(
-                                {
-                                    "type": "caption",
-                                    "text": seg_result.text,
-                                    "gloss": seg_result.gloss,
-                                    "confidence": seg_result.confidence,
-                                }
-                            )
-                        )
+                    await emit_classification_result(
+                        websocket, session_id, seg_result, "Gesture classified"
+                    )
                     if closed is not None:
                         await publish_gloss_sequence(websocket, session, closed)
 
@@ -221,6 +243,34 @@ async def recognition_socket(websocket: WebSocket):
                 )
                 if pause_closed is not None:
                     await publish_gloss_sequence(websocket, session, pause_closed)
+
+            elif msg_type == "repeat":
+                if not session.last_segment_frames:
+                    await websocket.send_text(json.dumps({"type": "unrecognized"}))
+                    continue
+
+                session.gloss_sequence.remove_last_token()
+                repeat_frames = session.last_segment_frames
+                repeat_result = classify_segment(repeat_frames)
+                closed = session.gloss_sequence.add_prediction(
+                    repeat_result,
+                    repeat_frames[0].timestamp,
+                    repeat_frames[-1].timestamp,
+                )
+                await emit_classification_result(
+                    websocket, session_id, repeat_result, "Repeat classified"
+                )
+                if closed is not None:
+                    await publish_gloss_sequence(websocket, session, closed)
+
+            elif msg_type == "restart":
+                session.reset()
+                logger.info(
+                    "Session %s restarted by user",
+                    session_id,
+                    extra={"session_id": session_id, "audit": True},
+                )
+                await send_state(websocket, session.state)
 
             elif msg_type == "finalize":
                 if session.buffer.is_empty:
@@ -233,38 +283,15 @@ async def recognition_socket(websocket: WebSocket):
                 # Close the segment still in progress; fall back to the buffer if none.
                 open_segment = session.spotter.flush()
                 final_frames = open_segment.frames if open_segment else session.buffer.frames()
+                session.last_segment_frames = list(final_frames)
                 result = classify_segment(final_frames)
                 full_sequence = session.gloss_sequence.add_prediction(
                     result, final_frames[0].timestamp, final_frames[-1].timestamp
                 )
 
-                if result is None:
-                    await websocket.send_text(json.dumps({"type": "unrecognized"}))
-                else:
-                    logger.info(
-                        "Finalize classified: gloss=%s confidence=%.2f model=%s version=%s",
-                        result.gloss,
-                        result.confidence,
-                        result.model_name,
-                        result.model_version,
-                        extra={
-                            "session_id": session_id,
-                            "model_name": result.model_name,
-                            "model_version": result.model_version,
-                            "confidence": result.confidence,
-                            "audit": True,
-                        },
-                    )
-                    await websocket.send_text(
-                        json.dumps(
-                            {
-                                "type": "caption",
-                                "text": result.text,
-                                "gloss": result.gloss,
-                                "confidence": result.confidence,
-                            }
-                        )
-                    )
+                await emit_classification_result(
+                    websocket, session_id, result, "Finalize classified"
+                )
 
                 # Finalize ends the utterance: send the structured gloss sequence.
                 for finished in (full_sequence, session.gloss_sequence.close(BOUNDARY_FINALIZE)):

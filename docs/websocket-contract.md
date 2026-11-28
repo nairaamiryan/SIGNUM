@@ -69,6 +69,24 @@ Sent when the user explicitly ends the current sentence.
 }
 ```
 
+### `repeat`
+Sent when the user requests re-evaluation of the most recently spotted gesture segment.
+```json
+{
+  "type": "repeat",
+  "sessionId": "a1b2c3d4-..."
+}
+```
+
+### `restart`
+Sent when the user restarts the current sentence (clears the buffer, spotter, and open gloss sequence).
+```json
+{
+  "type": "restart",
+  "sessionId": "a1b2c3d4-..."
+}
+```
+
 ## Server → Client Messages
 
 ### `state`
@@ -78,13 +96,15 @@ Informs the frontend of the current recognition state.
 ```
 
 ### `caption`
-Sent after a `finalize` request completes successfully.
+Sent after a gesture segment (or `finalize` / `repeat` request) completes successfully. When top candidate signs have similar confidence (difference below `SPOTER_AMBIGUITY_MARGIN`), `ambiguous` is `true` and `candidates` lists the top-K candidates.
 ```json
 {
   "type": "caption",
   "text": "Ես ջուր եմ ուզում։",
   "gloss": ["ԵՍ", "ՋՈՒՐ", "ՈՒԶԵԼ"],
-  "confidence": 0.92
+  "confidence": 0.92,
+  "ambiguous": false,
+  "candidates": []
 }
 ```
 
@@ -152,7 +172,7 @@ layer.
 | `glosses[].gloss` | Armenian gloss from the label map. |
 | `glosses[].confidence` | Softmax confidence of the prediction (0..1). For merged repeats, the highest value. |
 | `glosses[].startMs`, `endMs` | Start and end of the gesture segment, in the client `timestamp` units (ms). |
-| `glosses[].status` | `accepted` (confident) or `uncertain` (low confidence, kept so the NLP layer can decide). |
+| `glosses[].status` | `accepted` (confident), `uncertain` (low confidence), or `ambiguous` (multiple close candidates, kept so the NLP layer can disambiguate). |
 | `glosses[].repeats` | How many predictions were merged into this gloss (`1` = no repeat). |
 | `glossText` | The glosses joined with spaces, for convenience. |
 | `gaps` | Positions of missing predictions: a value `g` means one or more segments were not recognized right before `glosses[g]` (`g` equal to the number of glosses means after the last one). Empty when nothing is missing. |
@@ -230,6 +250,7 @@ background (usually 1-3 seconds), so it arrives later than the
 |---|---|
 | `missing_glosses` | The gloss sequence had gaps (unrecognized signs). The model does not guess them. |
 | `uncertain_glosses` | Some glosses had low confidence. |
+| `ambiguous_glosses` | Some glosses had close candidate signs and were disambiguated using context. |
 | `omitted_glosses` | The model left out glosses that did not fit. |
 | `incomplete` | The model reports that the sentence does not express everything. |
 | `llm_not_configured` | No language model is configured (`LLM_PROVIDER` / `GEMINI_API_KEY`). |
