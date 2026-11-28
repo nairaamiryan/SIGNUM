@@ -10,6 +10,7 @@ import time
 from dataclasses import dataclass, field
 from enum import Enum
 
+from continuous import ContinuousGestureProcessor
 from gloss_sequence import GlossSequenceProcessor
 from landmark_buffer import LandmarkBuffer, LandmarkFrame
 from spotting import HeuristicGestureSpotter
@@ -34,10 +35,14 @@ class Session:
     # Frames of the most recently classified segment for `repeat` (KAN-24).
     last_segment_frames: list[LandmarkFrame] = field(default_factory=list)
     gloss_sequence: GlossSequenceProcessor = field(init=False)
+    # Continuous gesture processing pipeline (KAN-25).
+    continuous: ContinuousGestureProcessor = field(init=False)
 
     def __post_init__(self) -> None:
         # Gloss sequence processor bound to this session (KAN-18).
         self.gloss_sequence = GlossSequenceProcessor(self.session_id)
+        # Continuous processor shares the session's spotter (KAN-25).
+        self.continuous = ContinuousGestureProcessor(self.spotter)
 
     def touch(self) -> None:
         """Marks the session as recently active."""
@@ -55,7 +60,7 @@ class Session:
         """Clears the buffer and returns to listening state after a
         finalize/classification cycle completes."""
         self.buffer.clear()
-        self.spotter.reset()
+        self.continuous.reset()  # also resets the shared spotter (KAN-25)
         self.gloss_sequence.discard()
         self.last_segment_frames.clear()
         self.state = RecognitionState.LISTENING
@@ -76,3 +81,6 @@ class SessionRegistry:
 
     def remove(self, session_id: str) -> None:
         self._sessions.pop(session_id, None)
+
+    def active_count(self) -> int:
+        return len(self._sessions)

@@ -33,6 +33,11 @@ export interface UseRecognitionSocketOptions {
         ambiguous?: boolean,
         candidates?: CandidateSign[],
     ) => void;
+    onPartialCaption?: (
+        text: string,
+        gloss: string[],
+        confidence: number,
+    ) => void;
     onUnrecognized?: () => void;
     onServerState?: (state: ServerState) => void;
     onGlossSequence?: (message: ServerGlossSequenceMessage) => void;
@@ -84,6 +89,17 @@ export interface ServerCaptionMessage {
     text: string;
     gloss: string[];
     confidence: number;
+    ambiguous?: boolean;
+    candidates?: CandidateSign[];
+}
+
+// Partial (preview) caption for a gesture still in progress (KAN-25).
+export interface ServerPartialCaptionMessage {
+    type: "partial_caption";
+    text: string;
+    gloss: string[];
+    confidence: number;
+    partial: true;
     ambiguous?: boolean;
     candidates?: CandidateSign[];
 }
@@ -141,6 +157,7 @@ export interface ServerSentenceMessage {
 
 export type ServerMessage =
     | ServerCaptionMessage
+    | ServerPartialCaptionMessage
     | ServerStateMessage
     | ServerUnrecognizedMessage
     | ServerGlossSequenceMessage

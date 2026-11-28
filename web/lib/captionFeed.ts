@@ -58,6 +58,8 @@ export interface CaptionFeedState {
     /** The user pressed "Finalize" and the server has not answered yet. */
     finalizing: boolean;
     partials: PartialGloss[];
+    /** Preview gloss from the gesture still in progress (KAN-25). */
+    preview: PartialGloss | null;
     pending: PendingUtterance[];
     /** Completed captions, newest first. */
     captions: CaptionEntry[];
@@ -72,6 +74,7 @@ export const initialCaptionFeedState: CaptionFeedState = {
     serverState: ServerStateMap.IDLE,
     finalizing: false,
     partials: [],
+    preview: null,
     pending: [],
     captions: [],
     unrecognized: false,
@@ -90,6 +93,7 @@ export type CaptionFeedAction =
           ambiguous?: boolean;
           candidates?: CandidateSign[];
       }
+    | { type: "partial_caption"; gloss: string[]; confidence: number }
     | { type: "unrecognized" }
     | { type: "clear_unrecognized" }
     | { type: "clear_ambiguous" }
@@ -147,8 +151,20 @@ export function captionFeedReducer(
                 unrecognized: false,
                 ambiguous: isAmbiguous,
                 ambiguousCandidates: candidates,
+                // A final caption supersedes any partial preview (KAN-25).
+                preview: null,
                 error: null,
             };
+        }
+
+        case "partial_caption": {
+            // Preview of the gesture still in progress (KAN-25).
+            const preview: PartialGloss = {
+                id: state.nextPartialId,
+                gloss: action.gloss.join(" "),
+                confidence: action.confidence,
+            };
+            return { ...state, preview };
         }
 
         case "unrecognized":
