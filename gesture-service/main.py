@@ -90,6 +90,21 @@ def build_caption_payload(result: ClassificationResult) -> dict:
     return payload
 
 
+def build_partial_caption_payload(result: ClassificationResult) -> dict:
+    """Build a `partial_caption` payload for in-progress gesture previews (KAN-25)."""
+    payload: dict = {
+        "type": "partial_caption",
+        "text": result.text,
+        "gloss": result.gloss,
+        "confidence": result.confidence,
+        "partial": True,
+    }
+    if result.is_ambiguous:
+        payload["ambiguous"] = True
+        payload["candidates"] = [c.to_dict() for c in result.candidates]
+    return payload
+
+
 async def emit_classification_result(
     websocket: WebSocket,
     session_id: str,
@@ -221,11 +236,26 @@ async def recognition_socket(websocket: WebSocket):
 
                 session.buffer.add(frame)
 
-                # Gesture spotting: the spotter consumes each frame and emits
-                # finished gesture segments, which go to classification.
-                for segment in session.spotter.process(frame):
+                # --- Continuous gesture processing (KAN-25) ---
+                # Feed the frame through the continuous pipeline. It
+                # handles sliding-window analysis, frame-drop interpolation,
+                # quality assessment, gesture spotting, classification,
+                # candidate queue management, and partial emissions.
+                streaming_results = session.continuous.feed(frame)
+
+                for sr in streaming_results:
+                    if sr.is_partial:
+                        # Partial (preview) result for the gesture still in progress
+                        await websocket.send_text(
+                            json.dumps(build_partial_caption_payload(sr.result))
+                        )
+                        continue
+
+                    # Final result for a completed segment
+                    seg_result = sr.result
+                    segment = sr.candidate.segment
                     session.last_segment_frames = list(segment.frames)
-                    seg_result = classify_segment(segment.frames)
+
                     closed = session.gloss_sequence.add_prediction(
                         seg_result,
                         segment.frames[0].timestamp,
@@ -281,8 +311,13 @@ async def recognition_socket(websocket: WebSocket):
                 await send_state(websocket, session.state)
 
                 # Close the segment still in progress; fall back to the buffer if none.
-                open_segment = session.spotter.flush()
-                final_frames = open_segment.frames if open_segment else session.buffer.frames()
+                flush_results = session.continuous.flush()
+                if flush_results:
+                    # Use the last flushed result
+                    last_sr = flush_results[-1]
+                    final_frames = list(last_sr.candidate.segment.frames)
+                else:
+                    final_frames = session.buffer.frames()
                 session.last_segment_frames = list(final_frames)
                 result = classify_segment(final_frames)
                 full_sequence = session.gloss_sequence.add_prediction(

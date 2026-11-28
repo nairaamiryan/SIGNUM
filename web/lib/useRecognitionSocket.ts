@@ -24,6 +24,7 @@ function generateSessionId(): string {
 
 export function useRecognitionSocket({
     onCaption,
+    onPartialCaption,
     onUnrecognized,
     onServerState,
     onGlossSequence,
@@ -162,6 +163,13 @@ export function useRecognitionSocket({
                                 message.candidates,
                             );
                             break;
+                        case "partial_caption":
+                            onPartialCaption?.(
+                                message.text,
+                                message.gloss,
+                                message.confidence,
+                            );
+                            break;
                         case "unrecognized":
                             onUnrecognized?.();
                             break;
@@ -186,7 +194,7 @@ export function useRecognitionSocket({
                 }
             };
         },
-        [onCaption, onUnrecognized, onServerState, onGlossSequence, onSentence, onError, t],
+        [onCaption, onPartialCaption, onUnrecognized, onServerState, onGlossSequence, onSentence, onError, t],
     );
 
     useEffect(() => {

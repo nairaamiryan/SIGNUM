@@ -59,6 +59,29 @@ GLOSS_UTTERANCE_PAUSE_MS = 2000
 # An utterance is closed when it reaches this many glosses.
 GLOSS_MAX_SEQUENCE_LENGTH = 20
 
+# --- Continuous gesture processing (KAN-25) ---
+# Temporal buffer keeps this many seconds of frames for re-classification
+# and frame-drop recovery. Wider than the spotter's own segment buffer.
+CONTINUOUS_TEMPORAL_BUFFER_SECONDS = 5.0
+# Maximum gap (ms) between consecutive frames before interpolation is skipped.
+# Gaps larger than this are treated as a discontinuity (e.g. tab-away).
+CONTINUOUS_MAX_FRAME_GAP_MS = 500
+# How many candidate gestures to keep in the streaming queue.
+CONTINUOUS_CANDIDATE_QUEUE_SIZE = 10
+# Minimum classification confidence for a candidate to be emitted.
+# Below this, the candidate is dropped from the queue silently.
+CONTINUOUS_MIN_CANDIDATE_CONFIDENCE = 0.25
+# How many consecutive BAD-quality frames are tolerated (occlusion grace).
+CONTINUOUS_OCCLUSION_GRACE_FRAMES = 5
+# Minimum interval (ms) between partial (preview) emissions while a
+# gesture is still in progress. 0 disables partial emissions.
+CONTINUOUS_PARTIAL_EMIT_INTERVAL_MS = 500
+# After classifying a segment, wait at least this long (ms) before
+# re-classifying the same active segment for a partial update.
+CONTINUOUS_RECLASS_COOLDOWN_MS = 300
+# Landmark spread below which a hand is considered "collapsed" (blur).
+CONTINUOUS_QUALITY_BLUR_THRESHOLD = 0.02
+
 # --- NLP layer / LLM (KAN-19) ---
 # Provider selected by the LLM_PROVIDER environment variable ("gemini" or "none").
 DEFAULT_LLM_PROVIDER = "gemini"

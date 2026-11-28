@@ -115,6 +115,27 @@ frontend displays a visual warning and does not update the caption.
 { "type": "unrecognized" }
 ```
 
+### `partial_caption`
+Sent periodically while a gesture is still in progress, providing an
+early preview of the recognition result. The frontend may display this
+as a tentative/greyed-out caption. The result is not final and will be
+superseded by a full `caption` when the gesture segment completes.
+```json
+{
+  "type": "partial_caption",
+  "text": "ԲԱՐԵՎ",
+  "gloss": ["ԲԱՐԵՎ"],
+  "confidence": 0.68,
+  "partial": true
+}
+```
+
+Partial captions are emitted at most once every
+`CONTINUOUS_PARTIAL_EMIT_INTERVAL_MS` (default 500ms). They are part of
+the continuous processing pipeline (KAN-25) and require no action from
+the frontend other than displaying them. When the gesture completes, a
+normal `caption` message replaces the partial.
+
 ### `error`
 Sent for any server-side error (e.g. malformed input, internal failure).
 ```json
