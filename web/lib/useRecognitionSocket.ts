@@ -220,13 +220,16 @@ export function useRecognitionSocket({
         openSocketRef.current = openSocket;
     }, [openSocket]);
 
-    const connect = useCallback(() => {
-        clearReconnectTimeout();
-        intentionalCloseRef.current = false;
-        reconnectAttemptsRef.current = 0;
-        sessionIdRef.current = generateSessionId();
-        openSocket(false);
-    }, [openSocket, clearReconnectTimeout]);
+    const connect = useCallback(
+        (explicitSessionId?: string) => {
+            clearReconnectTimeout();
+            intentionalCloseRef.current = false;
+            reconnectAttemptsRef.current = 0;
+            sessionIdRef.current = explicitSessionId || generateSessionId();
+            openSocket(false);
+        },
+        [openSocket, clearReconnectTimeout],
+    );
 
     const disconnect = useCallback(() => {
         intentionalCloseRef.current = true;

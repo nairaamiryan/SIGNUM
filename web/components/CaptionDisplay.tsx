@@ -11,6 +11,8 @@ import type { CandidateSign, SentenceStatus as SentenceStatusType } from "@/lib/
 interface CaptionDisplayProps {
     /** Signs recognized so far in the utterance that is still in progress. */
     partials: PartialGloss[];
+    /** Tentative preview of the gesture still in progress. */
+    preview?: PartialGloss | null;
     /** Completed captions, newest first. */
     captions: CaptionEntry[];
     /** A sentence is being generated for an utterance that has ended. */
@@ -50,6 +52,7 @@ function percent(confidence: number): string {
 
 export default function CaptionDisplay({
     partials,
+    preview,
     captions,
     generating,
     unrecognized,
@@ -63,6 +66,7 @@ export default function CaptionDisplay({
     const [latest, ...earlier] = captions;
     const showPlaceholder =
         partials.length === 0 &&
+        !preview &&
         !generating &&
         !unrecognized &&
         !ambiguous &&
@@ -116,9 +120,9 @@ export default function CaptionDisplay({
             )}
 
             {/* Live area: partial results of the utterance in progress. */}
-            {(partials.length > 0 || generating) && (
+            {(partials.length > 0 || preview || generating) && (
                 <div aria-live="polite" className="rounded-lg border border-dashed px-4 py-3">
-                    {partials.length > 0 && (
+                    {(partials.length > 0 || preview) && (
                         <>
                             <p className="mb-2 text-xs text-muted-foreground">
                                 {t("caption.partial")}
@@ -157,6 +161,17 @@ export default function CaptionDisplay({
                                         </li>
                                     );
                                 })}
+                                {preview && (
+                                    <li
+                                        key={`preview-${preview.id}`}
+                                        className="rounded-full border border-dashed px-3 py-1 text-sm italic text-muted-foreground"
+                                    >
+                                        {preview.gloss}
+                                        <span className="ml-2 text-xs">
+                                            {percent(preview.confidence)}
+                                        </span>
+                                    </li>
+                                )}
                             </ul>
                         </>
                     )}
