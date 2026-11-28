@@ -1,4 +1,5 @@
 node_modules/
+.next/
 venv/
 .venv/
 __pycache__/
