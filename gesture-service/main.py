@@ -22,6 +22,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend_log_handler import BackendLogHandler
+from backend_persistence import BackendPersistenceClient
 from classification import ClassificationResult, classify_segment
 from edge_cases import EdgeWarning, EdgeWarningCode
 from gloss_sequence import BOUNDARY_FINALIZE, BOUNDARY_PAUSE, GlossSequence
@@ -58,6 +59,7 @@ app.add_middleware(
 
 registry = SessionRegistry()
 nlp_service = NLPService.from_env()  # Armenian sentence generation (KAN-19)
+persistence = BackendPersistenceClient()
 _background_tasks: set = set()  # keeps running sentence tasks referenced
 
 
@@ -161,6 +163,7 @@ async def emit_classification_result(
             "audit": True,
         },
     )
+    persistence.record_gesture(session_id, " ".join(result.gloss), result.confidence)
     await websocket.send_text(json.dumps(build_caption_payload(result)))
 
 
@@ -174,6 +177,13 @@ async def send_sentence(websocket: WebSocket, session, sequence: GlossSequence) 
         result = await nlp_service.generate(sequence, list(session.sentence_context))
         if result.status != SentenceStatus.FALLBACK:
             session.remember_sentence(result.text)
+        gloss_list = [t.gloss for t in sequence.glosses]
+        avg_conf = (
+            sum(t.confidence for t in sequence.glosses) / len(sequence.glosses)
+            if sequence.glosses
+            else None
+        )
+        persistence.record_caption(sequence.session_id, result.text, gloss_list, avg_conf)
         await websocket.send_text(json.dumps(result.to_message()))
     except Exception:
         # For example the socket closed while the model was answering.

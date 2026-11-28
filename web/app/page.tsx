@@ -1,12 +1,14 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { TriangleAlert } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import CameraFeed from "@/components/CameraFeed";
 import CaptionDisplay from "@/components/CaptionDisplay";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { parseSession, readRawSession } from "@/lib/authStorage";
+import { createRecognitionSession, endRecognitionSession } from "@/lib/sessionClient";
 import { useCaptionFeed } from "@/lib/useCaptionFeed";
 import { useRecognitionSocket } from "@/lib/useRecognitionSocket";
 import { ConnectionState, ServerState } from "@/lib/constants";
@@ -18,9 +20,12 @@ export default function Home() {
     // Partial results, completed sentences, confidence, state and errors,
     // driven by the events of the recognition and NLP pipeline.
     const feed = useCaptionFeed();
+    const activeSessionRef = useRef<{ id: string; token: string } | null>(null);
+    const streamActiveRef = useRef(false);
 
     const { connect, disconnect, send, connectionState } = useRecognitionSocket({
         onCaption: feed.onCaption,
+        onPartialCaption: feed.onPartialCaption,
         onUnrecognized: feed.onUnrecognized,
         onServerState: feed.onServerState,
         onLifecycle: feed.onLifecycle,
@@ -38,15 +43,48 @@ export default function Home() {
 
     const { reset } = feed;
 
+    const closePersistedSession = useCallback(() => {
+        const persisted = activeSessionRef.current;
+        if (!persisted) return;
+        activeSessionRef.current = null;
+        void endRecognitionSession(persisted.id, persisted.token);
+    }, []);
+
     const handleStreamReady = useCallback(() => {
+        streamActiveRef.current = true;
         reset();
-        connect();
+        const auth = parseSession(readRawSession());
+        if (!auth?.token) {
+            connect();
+            return;
+        }
+        void createRecognitionSession(auth.token).then((persistedId) => {
+            if (!streamActiveRef.current) {
+                if (persistedId) void endRecognitionSession(persistedId, auth.token);
+                return;
+            }
+            if (persistedId) {
+                activeSessionRef.current = { id: persistedId, token: auth.token };
+                connect(persistedId);
+            } else {
+                connect();
+            }
+        });
     }, [reset, connect]);
 
     const handleStreamStopped = useCallback(() => {
+        streamActiveRef.current = false;
         disconnect();
+        closePersistedSession();
         reset();
-    }, [disconnect, reset]);
+    }, [disconnect, closePersistedSession, reset]);
+
+    useEffect(() => {
+        return () => {
+            streamActiveRef.current = false;
+            closePersistedSession();
+        };
+    }, [closePersistedSession]);
 
     const handleLandmarksDetected = useCallback(
         (frame: LandmarkFrame) => {
@@ -121,6 +159,7 @@ export default function Home() {
                     <CardContent>
                         <CaptionDisplay
                             partials={feed.partials}
+                            preview={feed.preview}
                             captions={feed.captions}
                             generating={feed.generating}
                             unrecognized={feed.unrecognized}

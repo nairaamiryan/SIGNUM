@@ -37,6 +37,11 @@ export function useCaptionFeed() {
         ) => dispatch({ type: "caption", gloss, confidence, ambiguous, candidates }),
         [],
     );
+    const onPartialCaption = useCallback(
+        (_text: string, gloss: string[], confidence: number) =>
+            dispatch({ type: "partial_caption", gloss, confidence }),
+        [],
+    );
     const onUnrecognized = useCallback(() => dispatch({ type: "unrecognized" }), []);
     const onRestartRequested = useCallback(() => dispatch({ type: "restart" }), []);
     const onServerState = useCallback(
@@ -105,6 +110,7 @@ export function useCaptionFeed() {
         signerPresent: state.signerPresent,
         signerPositioned: state.signerPositioned,
         partials: state.partials,
+        preview: state.preview,
         captions: state.captions,
         /** A sentence is being generated for an utterance that has ended. */
         generating: pendingCount > 0,
@@ -114,6 +120,7 @@ export function useCaptionFeed() {
         warning: state.warning,
         error: state.error,
         onCaption,
+        onPartialCaption,
         onUnrecognized,
         onServerState,
         onLifecycle,

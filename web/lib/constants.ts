@@ -92,6 +92,7 @@ export const ApiRoute = {
     REGISTER: "/api/auth/register",
     GOOGLE: "/api/auth/google",
     ME: "/api/users/me",
+    SESSIONS: "/api/sessions",
 } as const;
 
 export const HttpStatus = {
